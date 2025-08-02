@@ -3,9 +3,26 @@
     "description": "Basic implementations of the repository pattern with a json back",
     "type": "library",
     "license": "MIT",
+    "require": {
+        "php": ">=8.0",
+        "symfony/serializer": "*",
+        "symfony/finder": "*",
+        "symfony/filesystem": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "*",
+        "symfony/property-info": "*",
+        "phpdocumentor/reflection-docblock": "*",
+        "symfony/property-access": "*"
+    },
     "autoload": {
         "psr-4": {
             "Mmauksch\\JsonRepositories\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Mmauksch\\JsonRepositories\\Tests\\": "tests/"
         }
     },
     "authors": [
@@ -14,6 +31,5 @@
             "email": "markus.mauksch@ea-energie.de"
         }
     ],
-    "minimum-stability": "stable",
-    "require": {}
+    "minimum-stability": "stable"
 }

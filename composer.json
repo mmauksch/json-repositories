@@ -1,0 +1,19 @@
+{
+    "name": "mmauksch/json-repositories",
+    "description": "Basic implementations of the repository pattern with a json back",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Mmauksch\\JsonRepositories\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Markus Mauksch",
+            "email": "markus.mauksch@ea-energie.de"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {}
+}

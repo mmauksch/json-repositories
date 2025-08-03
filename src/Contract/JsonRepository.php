@@ -2,13 +2,13 @@
 
 namespace Mmauksch\JsonRepositories\Contract;
 
-use Mmauksch\JsonRepositories\Contract\Extensions\FilterAwareJsonRepository;
+use Mmauksch\JsonRepositories\Contract\Extensions\FilterableJsonRepository;
 
 /**
  * @template T of object
  * @implements BasicJsonRepository<T>
- * @implements FilterAwareJsonRepository<T>
+ * @implements FilterableJsonRepository<T>
  */
-interface JsonRepository extends BasicJsonRepository, FilterAwareJsonRepository
+interface JsonRepository extends BasicJsonRepository, FilterableJsonRepository
 {
 }

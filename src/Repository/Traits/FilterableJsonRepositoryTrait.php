@@ -1,0 +1,35 @@
+<?php
+
+namespace Mmauksch\JsonRepositories\Repository\Traits;
+
+use Closure;
+use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
+use Symfony\Component\Finder\Finder;
+
+/**
+ * @template T of object
+ */
+trait FilterableJsonRepositoryTrait
+{
+    use BasicJsonRepositoryTrait;
+    public function findMatchingFilter(Filter|Closure $filter): iterable
+    {
+        $result = [];
+        foreach ($this->findAllObjects() as $object) {
+            if ($filter($object)) {
+                $result[] = $object;
+            }
+        }
+        return $result;
+    }
+
+    public function deleteMatchingFilter(Filter|Closure $filter): void
+    {
+        foreach ((new Finder())->files()->name('*.json')->in($this->objectStoreDirectory()) as $objectFile) {
+            $object = $this->serializer->deserialize($objectFile->getContents(), $this->targetClass, 'json');
+            if ($filter($object)) {
+                $this->filesystem->remove($objectFile->getPathname());
+            }
+        }
+    }
+}

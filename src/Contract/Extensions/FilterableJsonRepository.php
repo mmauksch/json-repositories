@@ -7,7 +7,7 @@ use Closure;
 /**
  * @template T of object
  */
-interface FilterAwareJsonRepository
+interface FilterableJsonRepository
 {
     /**
      * @param Filter<T>|Closure $filter

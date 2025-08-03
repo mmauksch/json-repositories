@@ -1,0 +1,53 @@
+<?php
+
+namespace Mmauksch\JsonRepositories\Repository\Traits;
+
+use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Filesystem\Path;
+use Symfony\Component\Finder\Finder;
+use Symfony\Component\Serializer\SerializerInterface;
+
+/**
+ * @template T of object
+ */
+trait BasicJsonRepositoryTrait
+{
+    protected Filesystem $filesystem;
+    protected string $targetClass;
+    protected SerializerInterface $serializer;
+    /** @param T $object */
+    public function saveObject(object $object, string $id) : object
+    {
+        $filename = Path::join($this->objectStoreDirectory(), "$id.json");
+        $this->filesystem->dumpFile(
+            $filename,
+            $this->serializer->serialize($object, 'json')
+        );
+        return $object;
+    }
+
+    /** @return T[] */
+    public function findAllObjects() : array
+    {
+        $result = [];
+        foreach ((new Finder())->files()->name('*.json')->in($this->objectStoreDirectory()) as $objectFile) {
+            $result[] = $this->serializer->deserialize($objectFile->getContents(), $this->targetClass, 'json');
+        }
+        return $result;
+    }
+
+    public function findObjectById(mixed $id): ?object
+    {
+        $path = Path::join($this->objectStoreDirectory(), "$id.json");
+        if (!$this->filesystem->exists($path)) {
+            return null;
+        }
+        return $this->serializer->deserialize(file_get_contents($path), $this->targetClass, 'json');
+    }
+
+    public function deleteObjectById(mixed $id): void
+    {
+        $this->filesystem->remove(Path::join($this->objectStoreDirectory(), "$id.json"));
+    }
+    protected abstract function objectStoreDirectory() : string;
+}

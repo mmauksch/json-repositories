@@ -1,6 +1,6 @@
 <?php
 
-namespace Mmauksch\JsonRepositories\Contract;
+namespace Mmauksch\JsonRepositories\Contract\Extensions;
 
 /**
  * @template T of object

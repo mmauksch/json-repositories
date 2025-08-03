@@ -2,7 +2,9 @@
 
 namespace Mmauksch\JsonRepositories\Tests\Repository;
 
-use Mmauksch\JsonRepositories\Contract\Filter;
+use Closure;
+use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
+use Mmauksch\JsonRepositories\Contract\Extensions\Sorter;
 use Mmauksch\JsonRepositories\Repository\GenericJsonRepository;
 use Mmauksch\JsonRepositories\Tests\TestConstants;
 use Mmauksch\JsonRepositories\Tests\TestObjects\SimpleObject;
@@ -35,13 +37,13 @@ class GenericRepositoryTest extends TestCase
     {
         return (new SimpleObject())
             ->setId('first-id-' . uniqid())
-            ->setName('first-name-' . uniqid());
+            ->setName('aa-first-name');
     }
     public function ObjectSecond(): SimpleObject
     {
         return (new SimpleObject())
             ->setId('second-id-' . uniqid())
-            ->setName('second-name-' . uniqid());
+            ->setName('bb-second-name');
     }
 
     protected function setUp(): void
@@ -104,14 +106,33 @@ class GenericRepositoryTest extends TestCase
         $this->assertTrue(true);
     }
 
-    public function testCanFindWithFilterObject()
+    public static function FilterProvider() : array {
+        return [
+            'filterObject' => [
+                new NameFilter('aa-first-name')
+            ],
+            'closure' => [
+                function (SimpleObject $object) {
+                    return $object->getName() === 'aa-first-name';
+                }
+            ]
+        ];
+    }
+
+
+    /**
+     * @dataProvider FilterProvider
+     * @param Filter|Closure $filter
+     * @return void
+     */
+    public function testCanFindWithFilter(Filter|Closure $filter)
     {
         $first = $this->ObjectFirst();
         $second = $this->ObjectSecond();
         $this->instance->saveObject($first, $first->getId());
         $this->instance->saveObject($second, $second->getId());
         $this->assertCount(2, $this->instance->findAllObjects());
-        $this->assertCount(1, $this->instance->findMatchingFilter(new IdFilter($first->getId())));
+        $this->assertCount(1, $this->instance->findMatchingFilter($filter));
     }
 
     public function testCanFindWithFilterObjectNotFound()
@@ -121,7 +142,7 @@ class GenericRepositoryTest extends TestCase
         $this->instance->saveObject($first, $first->getId());
         $this->instance->saveObject($second, $second->getId());
         $this->assertCount(2, $this->instance->findAllObjects());
-        $this->assertCount(0, $this->instance->findMatchingFilter(new IdFilter('not-existing-id')));
+        $this->assertCount(0, $this->instance->findMatchingFilter(new NameFilter('not-existing-name')));
     }
 
     public function testCanFindWithFilterAsClosure()
@@ -131,28 +152,43 @@ class GenericRepositoryTest extends TestCase
         $this->instance->saveObject($first, $first->getId());
         $this->instance->saveObject($second, $second->getId());
         $this->assertCount(2, $this->instance->findAllObjects());
-        $this->assertCount(1, $this->instance->findMatchingFilter(
-            function(SimpleObject $object) use ($first) {
+        $resultMatching = $this->instance->findMatchingFilter(
+            function (SimpleObject $object) use ($first) {
                 return $object->getId() === $first->getId();
-            })
-        );
+            });
+        $this->assertCount(1, $resultMatching);
+        $this->assertEquals($first, $resultMatching[0]);
 
     }
-}
 
-/**
- * @template T of SimpleObject
- * @implements Filter<SimpleObject>
- */
-class IdFilter implements Filter
-{
-    private string $id;
-
-    public function __construct(string $id) {
-        $this->id = $id;
-    }
-    public function __invoke(object $object): bool
+    public static function AscendingSorter() : array
     {
-        return $object->getId() === $this->id;
+        return [
+            'sorterObject' => [
+                new NameSorter()
+            ],
+            'closure' => [
+                function (SimpleObject $a, SimpleObject $b) {
+                    return strcmp($a->getName(), $b->getName());
+                }
+            ]
+        ];
+    }
+
+    /**
+     * @dataProvider AscendingSorter
+     * @param Sorter|Closure $sorter
+     * @return void
+     */
+    public function testCanRetrieveSorted(Sorter|Closure $sorter)
+    {
+        $first = $this->ObjectFirst();
+        $second = $this->ObjectSecond();
+        $this->instance->saveObject($first, $first->getId());
+        $this->instance->saveObject($second, $second->getId());
+        $result = $this->instance->findAllObjectSorted($sorter);
+        $this->assertCount(2, $result);
+        $this->assertEquals($first, $result[0]);
+        $this->assertEquals($second, $result[1]);
     }
 }

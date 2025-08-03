@@ -3,7 +3,9 @@
 namespace Mmauksch\JsonRepositories\Repository;
 
 use Closure;
-use Mmauksch\JsonRepositories\Contract\Filter;
+use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
+use Mmauksch\JsonRepositories\Contract\Extensions\SortableJsonRepository;
+use Mmauksch\JsonRepositories\Contract\Extensions\Sorter;
 use Mmauksch\JsonRepositories\Contract\JsonRepository;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Filesystem\Path;
@@ -13,8 +15,9 @@ use Symfony\Component\Serializer\SerializerInterface;
 /**
  * @template T of object
  * @implements  JsonRepository<T>
+ * @implements SortableJsonRepository<T>
  */
-abstract class AbstractJsonRepository implements JsonRepository
+abstract class AbstractJsonRepository implements JsonRepository, SortableJsonRepository
 {
     protected string $objectSubdir;
     protected string $jsonDbBase;
@@ -77,8 +80,24 @@ abstract class AbstractJsonRepository implements JsonRepository
         return $result;
     }
 
+    public function deleteMatchingFilter(Filter|Closure $filter): void
+    {
+        foreach ((new Finder())->files()->name('*.json')->in($this->objectStoreDirectory()) as $objectFile) {
+            $object = $this->serializer->deserialize($objectFile->getContents(), $this->targetClass, 'json');
+            if ($filter($object)) {
+                $this->filesystem->remove($objectFile->getPathname());
+            }
+        }
+    }
+
     protected function objectStoreDirectory() : string
     {
         return Path::join($this->jsonDbBase, $this->objectSubdir);
+    }
+    public function findAllObjectSorted(Sorter|Closure $sorter)
+    {
+        $allObjects = $this->findAllObjects();
+        usort($allObjects, $sorter);
+        return $allObjects;
     }
 }

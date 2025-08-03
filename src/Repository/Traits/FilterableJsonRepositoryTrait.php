@@ -4,10 +4,12 @@ namespace Mmauksch\JsonRepositories\Repository\Traits;
 
 use Closure;
 use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
+use Mmauksch\JsonRepositories\Contract\Extensions\FilterableJsonRepository;
 use Symfony\Component\Finder\Finder;
 
 /**
  * @template T of object
+ * @see FilterableJsonRepository
  */
 trait FilterableJsonRepositoryTrait
 {

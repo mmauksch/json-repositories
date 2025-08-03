@@ -2,6 +2,7 @@
 
 namespace Mmauksch\JsonRepositories\Repository\Traits;
 
+use Mmauksch\JsonRepositories\Contract\BasicJsonRepository;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Filesystem\Path;
 use Symfony\Component\Finder\Finder;
@@ -9,14 +10,16 @@ use Symfony\Component\Serializer\SerializerInterface;
 
 /**
  * @template T of object
+ * @see BasicJsonRepository
  */
 trait BasicJsonRepositoryTrait
 {
     protected Filesystem $filesystem;
     protected string $targetClass;
     protected SerializerInterface $serializer;
+
     /** @param T $object */
-    public function saveObject(object $object, string $id) : object
+    public function saveObject(object $object, string $id): object
     {
         $filename = Path::join($this->objectStoreDirectory(), "$id.json");
         $this->filesystem->dumpFile(
@@ -27,7 +30,7 @@ trait BasicJsonRepositoryTrait
     }
 
     /** @return T[] */
-    public function findAllObjects() : array
+    public function findAllObjects(): array
     {
         $result = [];
         foreach ((new Finder())->files()->name('*.json')->in($this->objectStoreDirectory()) as $objectFile) {
@@ -49,5 +52,6 @@ trait BasicJsonRepositoryTrait
     {
         $this->filesystem->remove(Path::join($this->objectStoreDirectory(), "$id.json"));
     }
-    protected abstract function objectStoreDirectory() : string;
+
+    protected abstract function objectStoreDirectory(): string;
 }

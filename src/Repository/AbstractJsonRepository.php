@@ -2,17 +2,13 @@
 
 namespace Mmauksch\JsonRepositories\Repository;
 
-use Closure;
-use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
 use Mmauksch\JsonRepositories\Contract\Extensions\SortableJsonRepository;
-use Mmauksch\JsonRepositories\Contract\Extensions\Sorter;
 use Mmauksch\JsonRepositories\Contract\JsonRepository;
 use Mmauksch\JsonRepositories\Repository\Traits\BasicJsonRepositoryTrait;
 use Mmauksch\JsonRepositories\Repository\Traits\FilterableJsonRepositoryTrait;
 use Mmauksch\JsonRepositories\Repository\Traits\SortableJsonRepositoryTrait;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Filesystem\Path;
-use Symfony\Component\Finder\Finder;
 use Symfony\Component\Serializer\SerializerInterface;
 
 /**
@@ -25,9 +21,6 @@ abstract class AbstractJsonRepository implements JsonRepository, SortableJsonRep
     use BasicJsonRepositoryTrait, FilterableJsonRepositoryTrait, SortableJsonRepositoryTrait;
     protected string $objectSubdir;
     protected string $jsonDbBase;
-    protected Filesystem $filesystem;
-    protected SerializerInterface $serializer;
-    protected string $targetClass;
 
     public function __construct(string $jsonDbBaseDir, $objectSubdir, string $targetClass, Filesystem $filesystem, SerializerInterface $serializer)
     {

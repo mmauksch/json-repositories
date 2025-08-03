@@ -77,6 +77,16 @@ abstract class AbstractJsonRepository implements JsonRepository
         return $result;
     }
 
+    public function deleteMatchingFilter(Filter|Closure $filter): void
+    {
+        foreach ((new Finder())->files()->name('*.json')->in($this->objectStoreDirectory()) as $objectFile) {
+            $object = $this->serializer->deserialize($objectFile->getContents(), $this->targetClass, 'json');
+            if ($filter($object)) {
+                $this->filesystem->remove($objectFile->getPathname());
+            }
+        }
+    }
+
     protected function objectStoreDirectory() : string
     {
         return Path::join($this->jsonDbBase, $this->objectSubdir);

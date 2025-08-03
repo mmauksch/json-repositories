@@ -50,7 +50,7 @@ class GenericRepositoryTest extends TestCase
     {
         $repositoryDir = Path::join(self::$temppath, static::$repodir);
         if(is_dir($repositoryDir))
-            self::$filesystem->remove($repositoryDir);;
+            self::$filesystem->remove($repositoryDir);
         $this->instance = new GenericJsonRepository(
             self::$temppath,
             self::$repodir,

@@ -1,13 +1,16 @@
 {
     "name": "mmauksch/json-repositories",
-    "description": "Basic implementations of the repository pattern with a json back",
+    "description": "Basic implementation of the repository pattern that stores its content in serialized json files. Intended use is for testing or prototyping! NOT INTENDED FOR PRODUCTION USE!",
+    "keywords": ["json", "repository", "prototyping"],
+    "version": "dev-main",
     "type": "library",
     "license": "MIT",
     "require": {
         "php": ">=8.0",
         "symfony/serializer": "*",
         "symfony/finder": "*",
-        "symfony/filesystem": "*"
+        "symfony/filesystem": "*",
+        "ext-json": "*"
     },
     "require-dev": {
         "phpunit/phpunit": "*",
@@ -31,5 +34,6 @@
             "email": "markus.mauksch@ea-energie.de"
         }
     ],
-    "minimum-stability": "stable"
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }

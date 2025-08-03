@@ -236,7 +236,6 @@ services:
         # The filesystem and serializer will be automatically injected
         autowire: true
 ```
-```
 
 ## 🔄 Key Features
 

@@ -116,7 +116,7 @@ class NameFilter implements Filter {
         $this->name = $name;
     }
 
-    public function matches(object $object): bool {
+    public function __invoke(object $object): bool {
         return $object->getName() === $this->name;
     }
 }
@@ -134,7 +134,7 @@ $sortedObjects = $repository->findAllObjectSorted(function (SimpleObject $a, Sim
 
 // Or implement a Sorter class
 class NameSorter implements Sorter {
-    public function compare(object $a, object $b): int {
+    public function __invoke(object $a, object $b): int {
         return strcmp($a->getName(), $b->getName());
     }
 }

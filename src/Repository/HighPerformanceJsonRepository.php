@@ -6,6 +6,8 @@ namespace Mmauksch\JsonRepositories\Repository;
 use Mmauksch\JsonRepositories\Contract\Extensions\FastFilter;
 use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
 use Closure;
+use ReflectionClass;
+use ReflectionProperty;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Filesystem\Path;
 use Symfony\Component\Finder\Finder;
@@ -24,7 +26,7 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
 
     private ?array $fastAttributes = [];
 
-    /** @var \ReflectionProperty[] */
+    /** @var ReflectionProperty[] */
     private array $fastProperties = [];
 
     /**
@@ -51,7 +53,7 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
         $fastAttributes = [];
         $attributes = $this->serializer->normalize($object);
         $possibleFastAttributes =  array_intersect(array_keys($attributes), $this->highPerformanceAttributWishes);
-        $reflection = new \ReflectionClass($this->targetClass);;
+        $reflection = new ReflectionClass($this->targetClass);;
         foreach ($possibleFastAttributes as $attribute) {
             $property = null;
             $currentReflection = $reflection;
@@ -70,23 +72,12 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
         return $fastAttributes;
     }
 
-
-    private function findAllObjectsWithIndexes(array $indexDirs): array
-    {
-        $result = [];
-        foreach ((new Finder())->files()->depth('== 0')->name('*.json')->in($this->objectStoreDirectory()) as $objectFile) {
-            $result[] = $this->serializer->deserialize($objectFile->getContents(), $this->targetClass, 'json');
-        }
-        return $result;
-    }
-
     /**
-     * @param string[] $indexDirs
      * @param string[] $indexDirs
      * @param SplFileInfo[]|null $currentFilesIntersection
      * @return SplFileInfo[]
      */
-    private function intersectFilesOfIndexdirs(array $filterIndexes, array $indexDirs, ?array $currentFilesIntersection = null): array
+    private function intersectFilesOfIndexDirectories(array $filterIndexes, array $indexDirs, ?array $currentFilesIntersection = null): array
     {
         if (empty($indexDirs)) {
             return $currentFilesIntersection ?? [];
@@ -112,7 +103,7 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
                 }
             }
         }
-        return $this->intersectFilesOfIndexdirs($filterIndexes, $indexDirs, $newFilesIntersection);
+        return $this->intersectFilesOfIndexDirectories($filterIndexes, $indexDirs, $newFilesIntersection);
     }
 
     public function findMatchingFilter(Filter|Closure $filter): iterable
@@ -122,9 +113,9 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
         }
 
         $filterIndexes = $filter->useIndexes();
-        $useableIndixes =  array_intersect($this->fastAttributes($filter), array_keys($filterIndexes));
+        $usableIndexes =  array_intersect($this->fastAttributes($filter), array_keys($filterIndexes));
 
-        $files = $this->intersectFilesOfIndexdirs($filterIndexes, $useableIndixes);
+        $files = $this->intersectFilesOfIndexDirectories($filterIndexes, $usableIndexes);
 
         $result = [];
         foreach ($files as $file) {

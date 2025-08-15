@@ -33,7 +33,7 @@ trait BasicJsonRepositoryTrait
     public function findAllObjects(): array
     {
         $result = [];
-        foreach ((new Finder())->files()->name('*.json')->in($this->objectStoreDirectory()) as $objectFile) {
+        foreach ((new Finder())->files()->depth('== 0')->name('*.json')->in($this->objectStoreDirectory()) as $objectFile) {
             $result[] = $this->serializer->deserialize($objectFile->getContents(), $this->targetClass, 'json');
         }
         return $result;

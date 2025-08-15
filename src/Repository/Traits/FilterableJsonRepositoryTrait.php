@@ -5,6 +5,7 @@ namespace Mmauksch\JsonRepositories\Repository\Traits;
 use Closure;
 use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
 use Mmauksch\JsonRepositories\Contract\Extensions\FilterableJsonRepository;
+use Mmauksch\JsonRepositories\Filter\SortableFilter;
 use Symfony\Component\Finder\Finder;
 
 /**
@@ -21,6 +22,11 @@ trait FilterableJsonRepositoryTrait
             if ($filter($object)) {
                 $result[] = $object;
             }
+        }
+
+        if ($filter instanceof SortableFilter) {
+            $sorter = $filter->getSorter();
+            return $this->sortResults($result, $sorter);
         }
         return $result;
     }

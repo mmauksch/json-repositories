@@ -16,7 +16,13 @@ trait SortableJsonRepositoryTrait
     public function findAllObjectSorted(Sorter|Closure $sorter) : iterable
     {
         $allObjects = $this->findAllObjects();
-        usort($allObjects, $sorter);
-        return $allObjects;
+        return $this->sortResults($allObjects, $sorter);
     }
+
+    protected function sortResults(array $unsorted, Sorter|Closure $sorter) : iterable
+    {
+        usort($unsorted, $sorter);
+        return $unsorted;
+    }
+
 }

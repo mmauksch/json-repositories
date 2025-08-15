@@ -19,7 +19,7 @@ trait SortableJsonRepositoryTrait
         return $this->sortResults($allObjects, $sorter);
     }
 
-    protected function sortResults(array $unsorted, Sorter|Closure $sorter) : iterable
+    protected function sortResults(array $unsorted, Sorter|Closure $sorter) : array
     {
         usort($unsorted, $sorter);
         return $unsorted;

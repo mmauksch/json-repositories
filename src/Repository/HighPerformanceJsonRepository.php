@@ -145,7 +145,7 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
 
         $result = [];
         if (empty($usableIndexes)) {
-            $result = parent::findMatchingFilter($filter);
+            return parent::findMatchingFilter($filter);
         }else{
             $files = $this->intersectFilesOfIndexDirectories($filterIndexes, $usableIndexes);
             foreach ($files as $file) {
@@ -158,10 +158,10 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
 
         if ($filter instanceof SortableFilter) {
             $sorter = $filter->getSorter();
-            return $this->sortResults($result, $sorter);
+            $result = $this->sortResults($result, $sorter);
         }
 
-        return $result;
+        return $this->applyLimitAndOffset($filter, $result);
     }
 
     /** @param T $object */

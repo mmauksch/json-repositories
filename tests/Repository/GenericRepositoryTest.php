@@ -347,6 +347,38 @@ class GenericRepositoryTest extends TestCase
 
     }
 
+    public function testQueryStyleWithLimit()
+    {
+        $toSave = [self::ObjectFirst(), self::ObjectSecond(), self::ObjectThird()];
+        foreach($toSave as $object) {
+            $this->instance->saveObject($object, $object->getId());
+        }
+
+        $query = (new QueryBuilder())->where()
+            ->condition('name', '=', 'aa-first-name')
+            ->end()
+            ->orderBy('id', 'asc')->limit(1);;
+        $result = $this->instance->findMatchingFilter($query);
+        $this->assertCount(1, $result);
+        $this->assertEquals($toSave[0]->getId(), $result[0]->getId());
+
+
+        $query = (new QueryBuilder())->where()
+            ->condition('name', '=', 'aa-first-name')
+            ->end()
+            ->orderBy('id', 'asc')->limit(1)->offset(1);
+        $result = $this->instance->findMatchingFilter($query);
+        $this->assertCount(1, $result);
+        $this->assertEquals($toSave[2]->getId(), $result[0]->getId());
+
+        $query = (new QueryBuilder())
+            ->orderBy('id', 'asc')->limit(2)->offset(1);
+        $result = $this->instance->findMatchingFilter($query);
+        $this->assertCount(2, $result);
+        $this->assertEquals($toSave[1]->getId(), $result[0]->getId());
+        $this->assertEquals($toSave[2]->getId(), $result[1]->getId());
+
+    }
 
 
 }

@@ -3,6 +3,8 @@
 namespace Mmauksch\JsonRepositories\Filter\QueryStyle;
 
 use Mmauksch\JsonRepositories\Contract\Extensions\FastFilter;
+use Mmauksch\JsonRepositories\Contract\Extensions\Limit;
+use Mmauksch\JsonRepositories\Contract\Extensions\Offset;
 use Mmauksch\JsonRepositories\Contract\Extensions\Sorter;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\Condition;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\ConditionGroup;
@@ -13,7 +15,7 @@ use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\SortOrder;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\WhereBuilder;
 use Mmauksch\JsonRepositories\Filter\SortableFilter;
 
-class QueryBuilder implements FastFilter, SortableFilter
+class QueryBuilder implements FastFilter, SortableFilter, Limit, Offset
 {
     /** @var string[][] */
     private array $equalIndexesValues;
@@ -25,6 +27,8 @@ class QueryBuilder implements FastFilter, SortableFilter
     private Sorter $sorter;
     /** @var SortingStep[] */
     private array $sorting = [];
+    private ?int $limit;
+    private int $offset;
 
     public function __construct()
     {
@@ -33,6 +37,8 @@ class QueryBuilder implements FastFilter, SortableFilter
         $this->sorter = new QuerySorter();
         $this->sorting = [];
         $this->root = new ConditionGroup(ConditionGroupType::AND);
+        $this->limit = null;
+        $this->offset = 0;
     }
 //
 //    public function select(array $fields): self
@@ -56,6 +62,18 @@ class QueryBuilder implements FastFilter, SortableFilter
     public function orderBy(string $attribute, SortOrder|string $direction = "asc"): self {
         $orderDirection = $direction instanceof SortOrder? $direction : SortOrder::fromString($direction);
         $this->sorting[] = new SortingStep($attribute, $orderDirection);
+        return $this;
+    }
+
+    public function limit(int $limit): self
+    {
+        $this->limit = $limit;
+        return $this;
+    }
+
+    public function offset(int $offset): self
+    {
+        $this->offset = $offset;
         return $this;
     }
 
@@ -112,4 +130,13 @@ class QueryBuilder implements FastFilter, SortableFilter
         return $this->sorter;
     }
 
+    public function getLimit(): ?int
+    {
+        return $this->limit;
+    }
+
+    public function getOffset(): int
+    {
+        return $this->offset;
+    }
 }

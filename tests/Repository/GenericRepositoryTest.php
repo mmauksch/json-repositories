@@ -5,6 +5,7 @@ namespace Mmauksch\JsonRepositories\Tests\Repository;
 use Closure;
 use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
 use Mmauksch\JsonRepositories\Contract\Extensions\Sorter;
+use Mmauksch\JsonRepositories\Filter\QueryStyle\QueryBuilder;
 use Mmauksch\JsonRepositories\Repository\GenericJsonRepository;
 use Mmauksch\JsonRepositories\Tests\TestConstants;
 use Mmauksch\JsonRepositories\Tests\TestObjects\SimpleObject;
@@ -260,6 +261,86 @@ class GenericRepositoryTest extends TestCase
         for($i = 0; $i < $expectedCount; $i++) {
             $this->assertEquals($expectedNameOrder[$i], $result[$i]->getName());
         }
+    }
+
+
+    public function testQueryStyle()
+    {
+        $toSave = [self::ObjectFirst(), self::ObjectSecond(), self::ObjectThird()];
+        foreach($toSave as $object) {
+            $this->instance->saveObject($object, $object->getId());
+        }
+
+        $query = (new QueryBuilder())->where()
+            ->condition('id', '=', $toSave[0]->getId())
+            ->end();
+        $result = $this->instance->findMatchingFilter($query);
+        $this->assertCount(1, $result);
+        $this->assertEquals($toSave[0]->getId(), $result[0]->getId());
+
+
+        $query = (new QueryBuilder())->where()
+            ->orX()
+                ->condition('name', '=', 'aa-first-name')
+                ->condition('name', '=', 'bb-second-name')
+            ->endX()
+            ->end();
+
+        $result = $this->instance->findMatchingFilter($query);
+        $this->assertCount(3, $result);
+
+        $query = (new QueryBuilder())->where()
+            ->orX()
+                ->condition('name', '=', 'aa-first-name')
+                ->condition('name', '=', 'nope')
+            ->endX()
+            ->end();
+
+        $result = $this->instance->findMatchingFilter($query);
+        $this->assertCount(2, $result);
+
+        $query = (new QueryBuilder())->where()
+            ->orX()
+                ->condition('name', '=', 'aa-first-name')
+                ->condition('name', '=', 'bb-second-name')
+                ->condition('name', '=', 'cc-third-name')
+            ->endX()
+            ->condition('id', '=', $toSave[0]->getId())
+            ->end();
+
+        $result = $this->instance->findMatchingFilter($query);
+        $this->assertCount(1, $result);
+
+
+    }
+
+
+    public function testQueryStyleWithSorting()
+    {
+        $toSave = [self::ObjectFirst(), self::ObjectSecond(), self::ObjectThird()];
+        foreach($toSave as $object) {
+            $this->instance->saveObject($object, $object->getId());
+        }
+
+        $query = (new QueryBuilder())->where()
+            ->condition('name', '=', 'aa-first-name')
+            ->end()
+            ->orderBy('id', 'asc');
+        $result = $this->instance->findMatchingFilter($query);
+        $this->assertCount(2, $result);
+        $this->assertEquals($toSave[0]->getId(), $result[0]->getId());
+        $this->assertEquals($toSave[2]->getId(), $result[1]->getId());
+
+
+        $query = (new QueryBuilder())->where()
+            ->condition('name', '=', 'aa-first-name')
+            ->end()
+            ->orderBy('id', 'desc');
+        $result = $this->instance->findMatchingFilter($query);
+        $this->assertCount(2, $result);
+        $this->assertEquals($toSave[2]->getId(), $result[0]->getId());
+        $this->assertEquals($toSave[0]->getId(), $result[1]->getId());
+
     }
 
 

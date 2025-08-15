@@ -7,6 +7,7 @@ use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
 use Mmauksch\JsonRepositories\Contract\Extensions\SortableJsonRepository;
 use Mmauksch\JsonRepositories\Contract\Extensions\Sorter;
 use Mmauksch\JsonRepositories\Contract\JsonRepository;
+use Mmauksch\JsonRepositories\Filter\SortableFilter;
 use Mmauksch\JsonRepositories\Repository\Traits\BasicJsonRepositoryTrait;
 use Mmauksch\JsonRepositories\Repository\Traits\FilterableJsonRepositoryTrait;
 use Mmauksch\JsonRepositories\Repository\Traits\SortableJsonRepositoryTrait;

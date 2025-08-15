@@ -6,6 +6,8 @@ use Closure;
 use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
 use Mmauksch\JsonRepositories\Contract\Extensions\Sorter;
 use Mmauksch\JsonRepositories\Filter\ClosureFastFilter;
+use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\SortOrder;
+use Mmauksch\JsonRepositories\Filter\QueryStyle\QueryBuilder;
 use Mmauksch\JsonRepositories\Repository\GenericJsonRepository;
 use Mmauksch\JsonRepositories\Repository\HighPerformanceJsonRepository;
 use Mmauksch\JsonRepositories\Tests\TestConstants;
@@ -39,7 +41,7 @@ class PerformanceRepositoryTest extends TestCase
     public static function ComplexObjectFirst(): ComplexObject
     {
         return (new ComplexObject())
-            ->setId('first-id-' . uniqid())
+            ->setId('aa-first-id-' . uniqid())
             ->setName('aa-first-name')
             ->setActive(true)
             ->setDescription('aa-first-description')
@@ -49,7 +51,7 @@ class PerformanceRepositoryTest extends TestCase
     public static function ComplexObjectSecond(): ComplexObject
     {
         return (new ComplexObject())
-            ->setId('second-id-' . uniqid())
+            ->setId('bb-second-id-' . uniqid())
             ->setName('bb-second-name')
             ->setActive(false)
             ->setDescription('bb-second-description')
@@ -59,7 +61,7 @@ class PerformanceRepositoryTest extends TestCase
     public static function ComplexObjectThird(): ComplexObject
     {
         return (new ComplexObject())
-            ->setId('third-id-' . uniqid())
+            ->setId('cc-third-id-' . uniqid())
             ->setName('cc-third-name')
             ->setActive(false)
             ->setDescription('cc-third-description')
@@ -296,5 +298,129 @@ class PerformanceRepositoryTest extends TestCase
             $this->assertEquals($expectedNamesOrder[$i], $result[$i]->getName());
         }
     }
+
+
+    public function testQueryStyle()
+    {
+        $toSave = [self::ComplexObjectFirst(), self::ComplexObjectSecond(), self::ComplexObjectThird()];
+        foreach($toSave as $object) {
+            $this->highPerformanceRepository->saveObject($object, $object->getId());
+        }
+
+        $query = (new QueryBuilder())->where()
+            ->condition('name', '=', 'aa-first-name')
+            ->condition('company', '=', 'companyABC')
+            ->end();
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(1, $result);
+        $this->assertEquals('aa-first-name', $result[0]->getName());
+        $this->assertEquals('companyABC', $result[0]->getCompany());;
+
+
+        $query = (new QueryBuilder())->where()
+            ->orX()
+                ->condition('name', '=', 'aa-first-name')
+                ->condition('name', '=', 'bb-second-name')
+            ->endX()
+            ->condition('company', '=', 'companyABC')
+            ->end();
+
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(2, $result);
+
+        $query = (new QueryBuilder())->where()
+            ->orX()
+                ->condition('name', '=', 'aa-first-name')
+                ->condition('name', '=', 'bb-second-name')
+                ->condition('name', '=', 'cc-third-name')
+            ->endX()
+            ->condition('company', '=', 'companyABC')
+            ->end();
+
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(2, $result);
+
+        $query = (new QueryBuilder())->where()
+            ->orX()
+                ->condition('name', '=', 'aa-first-name')
+                ->condition('name', '=', 'bb-second-name')
+                ->condition('name', '=', 'cc-third-name')
+            ->endX()
+            ->condition('company', '=', 'evil-company')
+            ->end();
+
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(1, $result);
+
+        $query = (new QueryBuilder())->where()
+            ->orX()
+                ->condition('name', '=', 'aa-first-name')
+                ->condition('name', '=', 'bb-second-name')
+                ->condition('name', '=', 'cc-third-name')
+            ->endX()
+            ->end();
+
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(3, $result);
+
+        $query = (new QueryBuilder())->where()
+            ->condition('age', '>', 12)
+            ->end();
+
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(2, $result);
+
+    }
+
+    public function testQueryStyleWithSorting()
+    {
+        $toSave = [self::ComplexObjectFirst(), self::ComplexObjectSecond(), self::ComplexObjectThird()];
+        foreach($toSave as $object) {
+            $this->highPerformanceRepository->saveObject($object, $object->getId());
+        }
+
+        $query = (new QueryBuilder())->where()
+            ->condition('company', '=', 'companyABC')
+            ->end()
+            ->orderBy('id', 'asc');
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(2, $result);
+        $this->assertEquals($toSave[0]->getId(), $result[0]->getId());
+        $this->assertEquals($toSave[1]->getId(), $result[1]->getId());
+
+
+        $query = (new QueryBuilder())->where()
+            ->condition('company', '=', 'companyABC')
+            ->end()
+            ->orderBy('id', 'desc');
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(2, $result);
+        $this->assertEquals($toSave[1]->getId(), $result[0]->getId());
+        $this->assertEquals($toSave[0]->getId(), $result[1]->getId());
+
+
+
+        $query = (new QueryBuilder())->where()
+            ->condition('company', '=', 'companyABC')
+            ->end()
+            ->orderBy('name', 'asc');
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(2, $result);
+        $this->assertEquals($toSave[0]->getId(), $result[0]->getId());
+        $this->assertEquals($toSave[1]->getId(), $result[1]->getId());
+
+
+        $query = (new QueryBuilder())->where()
+            ->condition('company', '=', 'companyABC')
+            ->end()
+            ->orderBy('name', SortOrder::DESC);
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(2, $result);
+        $this->assertEquals($toSave[1]->getId(), $result[0]->getId());
+        $this->assertEquals($toSave[0]->getId(), $result[1]->getId());
+
+    }
+
+
 
 }

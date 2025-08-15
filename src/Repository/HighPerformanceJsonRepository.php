@@ -6,6 +6,7 @@ namespace Mmauksch\JsonRepositories\Repository;
 use Mmauksch\JsonRepositories\Contract\Extensions\FastFilter;
 use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
 use Closure;
+use Mmauksch\JsonRepositories\Filter\SortableFilter;
 use ReflectionClass;
 use ReflectionProperty;
 use Symfony\Component\Filesystem\Filesystem;
@@ -60,7 +61,6 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
             while ($currentReflection) {
                 if ($currentReflection->hasProperty($attribute)) {
                     $property = $currentReflection->getProperty($attribute);
-                    $property->setAccessible(true);
                     $this->fastProperties[$attribute] = $property;
                     $fastAttributes[] = $attribute;
                     break;
@@ -71,6 +71,7 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
         $this->fastAttributes = $fastAttributes;
         return $fastAttributes;
     }
+
 
 
     /**
@@ -142,15 +143,24 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
         $filterIndexes = $filter->useIndexes();
         $usableIndexes =  array_intersect($this->fastAttributes($filter), array_keys($filterIndexes));
 
-        $files = $this->intersectFilesOfIndexDirectories($filterIndexes, $usableIndexes);
-
         $result = [];
-        foreach ($files as $file) {
-            $checkObject = $this->serializer->deserialize($file->getContents(), $this->targetClass, 'json');
-            if ($filter($checkObject)) {
-                $result[] = $checkObject;
+        if (empty($usableIndexes)) {
+            $result = parent::findMatchingFilter($filter);
+        }else{
+            $files = $this->intersectFilesOfIndexDirectories($filterIndexes, $usableIndexes);
+            foreach ($files as $file) {
+                $checkObject = $this->serializer->deserialize($file->getContents(), $this->targetClass, 'json');
+                if ($filter($checkObject)) {
+                    $result[] = $checkObject;
+                }
             }
         }
+
+        if ($filter instanceof SortableFilter) {
+            $sorter = $filter->getSorter();
+            return $this->sortResults($result, $sorter);
+        }
+
         return $result;
     }
 

@@ -17,7 +17,7 @@ use Mmauksch\JsonRepositories\Filter\SortableFilter;
 
 class QueryBuilder implements FastFilter, SortableFilter, Limit, Offset
 {
-    /** @var string[][] */
+    /** @var array<string, array<string, mixed>|string> */
     private array $equalIndexesValues;
 
 //    private array $select = [];

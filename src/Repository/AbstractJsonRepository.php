@@ -2,7 +2,10 @@
 
 namespace Mmauksch\JsonRepositories\Repository;
 
+use Closure;
+use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
 use Mmauksch\JsonRepositories\Contract\Extensions\SortableJsonRepository;
+use Mmauksch\JsonRepositories\Contract\Extensions\Sorter;
 use Mmauksch\JsonRepositories\Contract\JsonRepository;
 use Mmauksch\JsonRepositories\Repository\Traits\BasicJsonRepositoryTrait;
 use Mmauksch\JsonRepositories\Repository\Traits\FilterableJsonRepositoryTrait;
@@ -33,5 +36,11 @@ abstract class AbstractJsonRepository implements JsonRepository, SortableJsonRep
     protected function objectStoreDirectory() : string
     {
         return Path::join($this->jsonDbBase, $this->objectSubdir);
+    }
+
+    public function findMatchingFilterObjectSorted(Filter|Closure $filter, Sorter|Closure $sorter) : iterable
+    {
+        $unsorted = $this->findMatchingFilter($filter);
+        return $this->sortResults($unsorted, $sorter);
     }
 }

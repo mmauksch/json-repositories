@@ -83,8 +83,13 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
             return $currentFilesIntersection ?? [];
         }
         $dir = array_shift($indexDirs);
+        $dirPath = Path::join($this->objectStoreDirectory(), self::FAST_ATTRIBUTES_DIR, $dir, $filterIndexes[$dir]);
+        if(!$this->filesystem->exists($dirPath))
+        {
+            return [];
+        }
         $finder = new Finder();
-        $finder->files()->depth('== 0')->in(Path::join($this->objectStoreDirectory(), self::FAST_ATTRIBUTES_DIR, $dir, $filterIndexes[$dir]));
+        $finder->files()->depth('== 0')->in($dirPath);
 
         /** @var SplFileInfo[] $currentFiles */
         $currentFiles = [];

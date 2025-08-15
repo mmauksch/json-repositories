@@ -5,6 +5,7 @@ namespace Mmauksch\JsonRepositories\Tests\Repository;
 use Closure;
 use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
 use Mmauksch\JsonRepositories\Contract\Extensions\Sorter;
+use Mmauksch\JsonRepositories\Filter\ClosureFastFilter;
 use Mmauksch\JsonRepositories\Repository\GenericJsonRepository;
 use Mmauksch\JsonRepositories\Repository\HighPerformanceJsonRepository;
 use Mmauksch\JsonRepositories\Tests\TestConstants;
@@ -35,7 +36,7 @@ class PerformanceRepositoryTest extends TestCase
         self::$temppath = null;
     }
 
-    public function ComplexObjectFirst(): ComplexObject
+    public static function ComplexObjectFirst(): ComplexObject
     {
         return (new ComplexObject())
             ->setId('first-id-' . uniqid())
@@ -43,9 +44,9 @@ class PerformanceRepositoryTest extends TestCase
             ->setActive(true)
             ->setDescription('aa-first-description')
             ->setAge(10)
-            ->setCompany("company");
+            ->setCompany("companyABC");
     }
-    public function ComplexObjectSecond(): ComplexObject
+    public static function ComplexObjectSecond(): ComplexObject
     {
         return (new ComplexObject())
             ->setId('second-id-' . uniqid())
@@ -53,7 +54,17 @@ class PerformanceRepositoryTest extends TestCase
             ->setActive(false)
             ->setDescription('bb-second-description')
             ->setAge(20)
-            ->setCompany("company");
+            ->setCompany("companyABC");
+    }
+    public static function ComplexObjectThird(): ComplexObject
+    {
+        return (new ComplexObject())
+            ->setId('third-id-' . uniqid())
+            ->setName('cc-third-name')
+            ->setActive(false)
+            ->setDescription('cc-third-description')
+            ->setAge(666)
+            ->setCompany("evil-company");
     }
 
 
@@ -123,11 +134,11 @@ class PerformanceRepositoryTest extends TestCase
     public static function FilterProvider() : array {
         return [
             'complexFilter' => [
-                new ComplexFilter('company'),
+                new ComplexFilter('companyABC'),
                 2
             ],
             'complexDoubleFilter' => [
-                new ComplexDoubleFilter('aa-first-name', 'company'),
+                new ComplexDoubleFilter('aa-first-name', 'companyABC'),
                 1
             ],
             'closure' => [
@@ -184,11 +195,15 @@ class PerformanceRepositoryTest extends TestCase
     public static function AscendingSorter() : array
     {
         return [
-            'sorterObject' => [
+            'sorterObjectASC' => [
                 new NameSorter()
             ],
+            'sorterObjectDESC' => [
+                new NameSorterDesc(),
+                'desc'
+            ],
             'closure' => [
-                function (SimpleObject $a, SimpleObject $b) {
+                function (ComplexObject $a, ComplexObject $b) {
                     return strcmp($a->getName(), $b->getName());
                 }
             ]
@@ -200,7 +215,7 @@ class PerformanceRepositoryTest extends TestCase
      * @param Sorter|Closure $sorter
      * @return void
      */
-    public function testCanRetrieveSorted(Sorter|Closure $sorter)
+    public function testCanRetrieveSorted(Sorter|Closure $sorter, $order = 'asc')
     {
         $first = $this->ComplexObjectFirst();
         $second = $this->ComplexObjectSecond();
@@ -208,7 +223,78 @@ class PerformanceRepositoryTest extends TestCase
         $this->highPerformanceRepository->saveObject($second, $second->getId());
         $result = $this->highPerformanceRepository->findAllObjectSorted($sorter);
         $this->assertCount(2, $result);
-        $this->assertEquals($first, $result[0]);
-        $this->assertEquals($second, $result[1]);
+        if($order === 'asc') {
+            $this->assertEquals($first, $result[0]);
+            $this->assertEquals($second, $result[1]);
+        }else{
+            $this->assertEquals($first, $result[1]);
+            $this->assertEquals($second, $result[0]);
+        }
     }
+
+
+    public static function FilterSorter() : array
+    {
+        $saveObjects = [self::ComplexObjectFirst(), self::ComplexObjectSecond(), self::ComplexObjectThird()];
+        return [
+            'filterSorterObjectASC' => [
+                $saveObjects,
+                ["aa-first-name", "bb-second-name"],
+                new ComplexFilter('companyABC'),
+                2,
+                new NameSorter()
+            ],
+            'filterSorterObjectDESC' => [
+                $saveObjects,
+                ["bb-second-name", "aa-first-name"],
+                new ComplexFilter('companyABC'),
+                2,
+                new NameSorterDesc()
+            ],
+            'closureFastfilterSorterObjectDESC' => [
+                $saveObjects,
+                ["bb-second-name", "aa-first-name"],
+                new ClosureFastFilter(
+                    function (ComplexObject $object) {
+                        return $object->getName() === 'aa-first-name' || $object->getName() === 'bb-second-name';
+                    },
+                    ['company' => 'companyABC']
+                ),
+                2,
+                new NameSorterDesc()
+            ],
+            'closureDESC' => [
+                $saveObjects,
+                ["cc-third-name", "bb-second-name", "aa-first-name"],
+                new AllFilter(),
+                3,
+                function (ComplexObject $a, ComplexObject $b) {
+                    return strcmp($b->getName(), $a->getName());
+                }
+            ]
+        ];
+    }
+
+    /**
+     * @dataProvider FilterSorter
+     * @param SimpleObject[] $toSave
+     * @param SimpleObject[] $expectedNamesOrder
+     * @param Filter|Closure $filter
+     * @param int $expectedCount
+     * @param Sorter|Closure $sorter
+     * @return void
+     */
+    public function testCanRetrieveMatchedSorted(array $toSave, array $expectedNamesOrder, Filter|Closure $filter, int $expectedCount, Sorter|Closure $sorter)
+    {
+        foreach($toSave as $object) {
+            $this->highPerformanceRepository->saveObject($object, $object->getId());
+        }
+        $result = $this->highPerformanceRepository->findMatchingFilterObjectSorted($filter,$sorter);
+        $this->assertCount($expectedCount, $result);
+
+        for($i = 0; $i < $expectedCount; $i++) {
+            $this->assertEquals($expectedNamesOrder[$i], $result[$i]->getName());
+        }
+    }
+
 }

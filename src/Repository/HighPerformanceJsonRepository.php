@@ -72,6 +72,35 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
         return $fastAttributes;
     }
 
+
+    /**
+     * @param string $index
+     * @param string[] $indexValues
+     * @return SplFileInfo[]
+     */
+    private function mergeMultipleFilterIndexes(string $index, array $indexValues): array
+    {
+        /** @var SplFileInfo[] $currentFiles */
+        $currentFiles = [];
+
+        foreach ($indexValues as $indexDir) {
+            $dirPath = Path::join($this->objectStoreDirectory(), self::FAST_ATTRIBUTES_DIR, $index, $indexDir);
+            if(!$this->filesystem->exists($dirPath))
+            {
+                continue;
+            }
+
+            $finder = new Finder();
+            $finder->files()->depth('== 0')->in($dirPath);
+            /** @var SplFileInfo $file */
+            foreach ($finder as $file) {
+                $currentFiles[$file->getFilename()] = $file;
+            }
+        }
+        return $currentFiles;
+    }
+
+
     /**
      * @param string[] $indexDirs
      * @param SplFileInfo[]|null $currentFilesIntersection
@@ -82,21 +111,14 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
         if (empty($indexDirs)) {
             return $currentFilesIntersection ?? [];
         }
-        $dir = array_shift($indexDirs);
-        $dirPath = Path::join($this->objectStoreDirectory(), self::FAST_ATTRIBUTES_DIR, $dir, $filterIndexes[$dir]);
-        if(!$this->filesystem->exists($dirPath))
-        {
-            return [];
-        }
-        $finder = new Finder();
-        $finder->files()->depth('== 0')->in($dirPath);
 
-        /** @var SplFileInfo[] $currentFiles */
-        $currentFiles = [];
-        /** @var SplFileInfo $file */
-        foreach ($finder as $file) {
-            $currentFiles[$file->getFilename()] = $file;
+        $index = array_shift($indexDirs);
+        $indexValues = $filterIndexes[$index];
+
+        if (is_string($indexValues)) {
+            $indexValues = [$indexValues];
         }
+        $currentFiles = $this->mergeMultipleFilterIndexes($index, $indexValues);
 
         if ($currentFilesIntersection === null) {
             $newFilesIntersection = $currentFiles;

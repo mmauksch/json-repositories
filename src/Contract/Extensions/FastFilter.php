@@ -8,7 +8,7 @@ namespace Mmauksch\JsonRepositories\Contract\Extensions;
 interface FastFilter extends Filter
 {
     /**
-     * @return string[]
+     * @return string[] | string[][]
      */
     public function useIndexes() : array;
 

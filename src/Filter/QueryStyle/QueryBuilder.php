@@ -77,6 +77,12 @@ class QueryBuilder implements FastFilter, SortableFilter, Limit, Offset
         return $this;
     }
 
+    /**
+     * @internal This method should only be used by the QueryBuilder itself
+     * @param string $attribute
+     * @param mixed $value
+     * @return $this
+     */
     public function addEqualIndexValue(string $attribute, mixed $value): self
     {
         if (!isset($this->equalIndexesValues[$attribute])) {

@@ -419,6 +419,25 @@ class PerformanceRepositoryTest extends TestCase
         $this->assertEquals($toSave[1]->getId(), $result[0]->getId());
         $this->assertEquals($toSave[0]->getId(), $result[1]->getId());
 
+
+
+        $query = (new QueryBuilder())->orderBy("company", SortOrder::ASC)->orderBy("id", SortOrder::ASC);;;
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(3, $result);
+        $this->assertEquals($toSave[0]->getId(), $result[0]->getId());
+        $this->assertEquals($toSave[1]->getId(), $result[1]->getId());
+        $this->assertEquals($toSave[2]->getId(), $result[2]->getId());
+
+
+
+        $query = (new QueryBuilder())->orderBy("company", SortOrder::ASC)->orderBy("id", SortOrder::DESC);;;
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(3, $result);
+        $this->assertEquals($toSave[1]->getId(), $result[0]->getId());
+        $this->assertEquals($toSave[0]->getId(), $result[1]->getId());
+        $this->assertEquals($toSave[2]->getId(), $result[2]->getId());
+
+
     }
 
 

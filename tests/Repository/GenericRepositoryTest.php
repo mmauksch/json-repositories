@@ -5,6 +5,7 @@ namespace Mmauksch\JsonRepositories\Tests\Repository;
 use Closure;
 use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
 use Mmauksch\JsonRepositories\Contract\Extensions\Sorter;
+use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\SortOrder;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\QueryBuilder;
 use Mmauksch\JsonRepositories\Repository\GenericJsonRepository;
 use Mmauksch\JsonRepositories\Tests\TestConstants;
@@ -311,6 +312,9 @@ class GenericRepositoryTest extends TestCase
         $result = $this->instance->findMatchingFilter($query);
         $this->assertCount(1, $result);
 
+        $query = (new QueryBuilder());
+        $result = $this->instance->findMatchingFilter($query);
+        $this->assertCount(3, $result);
 
     }
 

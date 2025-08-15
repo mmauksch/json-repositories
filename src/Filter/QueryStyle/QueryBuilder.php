@@ -32,6 +32,7 @@ class QueryBuilder implements FastFilter, SortableFilter
         $this->equalIndexesValues = [];
         $this->sorter = new QuerySorter();
         $this->sorting = [];
+        $this->root = new ConditionGroup(ConditionGroupType::AND);
     }
 //
 //    public function select(array $fields): self
@@ -94,6 +95,9 @@ class QueryBuilder implements FastFilter, SortableFilter
 
     public function __invoke(object $object): bool
     {
+        if (count($this->root->conditions) == 0) {
+            return true;
+        }
         return $this->root->evaluate($object);
     }
 

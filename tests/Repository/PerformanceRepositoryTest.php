@@ -6,6 +6,7 @@ use Closure;
 use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
 use Mmauksch\JsonRepositories\Contract\Extensions\Sorter;
 use Mmauksch\JsonRepositories\Filter\ClosureFastFilter;
+use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\Operation;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\SortOrder;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\QueryBuilder;
 use Mmauksch\JsonRepositories\Repository\GenericJsonRepository;
@@ -440,6 +441,43 @@ class PerformanceRepositoryTest extends TestCase
 
     }
 
+    public function testQueryStyleWithLimit()
+    {
+        $toSave = [self::ComplexObjectFirst(), self::ComplexObjectSecond(), self::ComplexObjectThird()];
+        foreach($toSave as $object) {
+            $this->highPerformanceRepository->saveObject($object, $object->getId());
+        }
 
+        $query = (new QueryBuilder())->where()
+            ->condition('name', '=', 'aa-first-name')
+            ->end()
+            ->orderBy('id', 'asc')->limit(1);;
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(1, $result);
+        $this->assertEquals($toSave[0]->getId(), $result[0]->getId());
+
+        $query = (new QueryBuilder())->where()
+            ->condition('age', '>', 12)
+            ->end();
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(2, $result);
+
+        $query = (new QueryBuilder())->where()
+            ->condition('age', Operation::GT, 12)
+            ->end()
+            ->orderBy('age', 'asc')->limit(1)->offset(0);
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(1, $result);
+        $this->assertEquals($toSave[1]->getId(), $result[0]->getId());
+
+        $query = (new QueryBuilder())->where()
+            ->condition('age', Operation::GT, 12)
+            ->end()
+            ->orderBy('age', 'asc')->limit(1)->offset(1);
+        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $this->assertCount(1, $result);
+        $this->assertEquals($toSave[2]->getId(), $result[0]->getId());
+
+    }
 
 }

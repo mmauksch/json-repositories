@@ -14,7 +14,7 @@ use Symfony\Component\Finder\Finder;
  */
 trait FilterableJsonRepositoryTrait
 {
-    use BasicJsonRepositoryTrait;
+    use BasicJsonRepositoryTrait, LimitAndOffsetTrait;
     public function findMatchingFilter(Filter|Closure $filter): iterable
     {
         $result = [];
@@ -26,9 +26,9 @@ trait FilterableJsonRepositoryTrait
 
         if ($filter instanceof SortableFilter) {
             $sorter = $filter->getSorter();
-            return $this->sortResults($result, $sorter);
+            $result = $this->sortResults($result, $sorter);
         }
-        return $result;
+        return $this->applyLimitAndOffset($filter, $result);
     }
 
     public function deleteMatchingFilter(Filter|Closure $filter): void

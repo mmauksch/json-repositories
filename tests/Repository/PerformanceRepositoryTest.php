@@ -119,7 +119,8 @@ class PerformanceRepositoryTest extends TestCase
     {
         return (new CountryObject())
             ->setShort('hell')
-            ->setLong('in all, a funny place')
+            ->setLong('Hellfiretanien')
+            ->setDescription('in all, a funny place')
             ->setOverlord('cc-third-id');
     }
     public static function Country2(): CountryObject
@@ -127,6 +128,7 @@ class PerformanceRepositoryTest extends TestCase
         return (new CountryObject())
             ->setShort('de')
             ->setLong('germany')
+            ->setDescription('germans live here')
             ->setOverlord('bb-second-id');
     }
 
@@ -634,7 +636,7 @@ class PerformanceRepositoryTest extends TestCase
             ->innerJoin($this->companyRepository, "company")
             ->On("company.name", "company")
             ->where()
-            ->condition('country.long', '=', 'in all, a funny place')
+            ->condition('country.long', '=', 'Hellfiretanien')
             ->end();
         $this->assertCount(1, $this->runTestJoinQuery($query));
     }
@@ -651,4 +653,57 @@ class PerformanceRepositoryTest extends TestCase
             ->end();
         $this->assertCount(3, $this->runTestJoinQuery($query));
     }
+
+    public function testINConditions()
+    {
+        $query = (new QueryBuilder())
+            ->where()
+            ->condition('name', Operation::IN, ['nopeName', 'cc-third-name', 'aa-first-name'])
+            ->end();
+        $this->assertCount(2, $this->runTestJoinQuery($query));
+
+        $query = (new QueryBuilder())
+            ->innerJoin($this->companyRepository, "company")
+            ->On("company", "company.name")
+            ->innerJoin($this->countryRepository, "country")
+            ->On("country.short", "company.country")
+            ->where()
+            ->condition('country.long', Operation::IN, ['nopeTan', 'germany'])
+            ->end();
+        $this->assertCount(3, $this->runTestJoinQuery($query));
+
+        $query = (new QueryBuilder())
+            ->innerJoin($this->companyRepository, "company")
+            ->On("company", "company.name")
+            ->innerJoin($this->countryRepository, "country")
+            ->On("country.short", "company.country")
+            ->where()
+            ->condition('country.description', Operation::IN, ['in all, a funny place'])
+            ->end();
+        $this->assertCount(1, $this->runTestJoinQuery($query));
+
+        $query = (new QueryBuilder())
+            ->innerJoin($this->companyRepository, "company")
+            ->On("company", "company.name")
+            ->innerJoin($this->countryRepository, "country")
+            ->On("country.short", "company.country")
+            ->where()
+            ->condition('country.long', Operation::NOT_IN, ['nopeTan', 'germany'])
+            ->end();
+        $this->assertCount(1, $this->runTestJoinQuery($query));
+
+        $query = (new QueryBuilder())
+            ->innerJoin($this->companyRepository, "company")
+            ->On("company", "company.name")
+            ->innerJoin($this->countryRepository, "country")
+            ->On("country.short", "company.country")
+            ->where()
+            ->condition('country.long', Operation::NOT_IN, ['nopeTan', 'germany', 'Hellfiretanien'])
+            ->end();
+        $this->assertCount(0, $this->runTestJoinQuery($query));
+
+
+    }
+
+
 }

@@ -15,6 +15,8 @@ use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\QuerySorter;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\SortingStep;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\SortOrder;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\WhereBuilder;
+use Mmauksch\JsonRepositories\Filter\QueryStyle\jrql\Ast\AstLimit;
+use Mmauksch\JsonRepositories\Filter\QueryStyle\jrql\Ast\AstOffset;
 use Mmauksch\JsonRepositories\Filter\SortableFilter;
 use Mmauksch\JsonRepositories\Repository\AbstractJsonRepository;
 

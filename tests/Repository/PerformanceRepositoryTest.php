@@ -6,9 +6,11 @@ use Closure;
 use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
 use Mmauksch\JsonRepositories\Contract\Extensions\Sorter;
 use Mmauksch\JsonRepositories\Filter\ClosureFastFilter;
+use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\ConditionGroupType;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\Operation;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\RefAttribute;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\SortOrder;
+use Mmauksch\JsonRepositories\Filter\QueryStyle\jrql\Jrql;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\QueryBuilder;
 use Mmauksch\JsonRepositories\Repository\GenericJsonRepository;
 use Mmauksch\JsonRepositories\Repository\HighPerformanceJsonRepository;
@@ -595,6 +597,16 @@ class PerformanceRepositoryTest extends TestCase
         $this->assertCount(3, $this->runTestJoinQuery($query));
     }
 
+    public function testSimpleInnerJoinJrql()
+    {
+        $query = (new Jrql(["com" => $this->companyRepository]))->query("
+            INNER JOIN com ON com.name = company
+            WHERE com.city = 'a-city'
+        ");
+        $result = $this->runTestJoinQuery($query);
+        $this->assertCount(3, $result);
+    }
+
     public function testSimpleJoinWithMultipleConditions()
     {
         $query = (new QueryBuilder())
@@ -607,6 +619,15 @@ class PerformanceRepositoryTest extends TestCase
         $this->assertCount(1, $this->runTestJoinQuery($query));
     }
 
+    public function testSimpleJoinWithMultipleConditionsJrql()
+    {
+        $query = (new Jrql(["com" => $this->companyRepository]))->query("
+            INNER JOIN com ON com.name = company
+            WHERE com.city = 'a-city' AND age < 20
+        ");
+        $this->assertCount(1, $this->runTestJoinQuery($query));
+    }
+
     public function testSimpleJoinWithConditionsNoResultsOnFalseConditions() {
         $query = (new QueryBuilder())
             ->innerJoin($this->companyRepository, "com")
@@ -616,6 +637,14 @@ class PerformanceRepositoryTest extends TestCase
             ->condition('com.address', '=', 'voelligFalsch')
             ->condition('age', '<', 20)
             ->end();
+        $this->assertCount(0, $this->runTestJoinQuery($query));
+    }
+
+    public function testSimpleJoinWithConditionsNoResultsOnFalseConditionsJrql() {
+        $query = (new Jrql(["com" => $this->companyRepository]))->query("
+            INNER JOIN com ON com.name = company
+            WHERE com.city = 'a-city' AND com.address = 'voelligFalsch' AND age < 20
+        ");
         $this->assertCount(0, $this->runTestJoinQuery($query));
     }
 
@@ -641,6 +670,22 @@ class PerformanceRepositoryTest extends TestCase
         $this->assertCount(1, $this->runTestJoinQuery($query));
     }
 
+    public function testNestedJoinWithConditionOnJoinedRepositoryJrql() {
+        $query = (new Jrql(["country" => $this->countryRepository, "company" => $this->companyRepository]))->query("
+            INNER JOIN country ON company.country = country.short 
+            INNER JOIN company ON company.name = company 
+            WHERE country.long = 'germany'
+        ");
+        $this->assertCount(3, $this->runTestJoinQuery($query));
+
+        $query = (new Jrql(["country" => $this->countryRepository, "company" => $this->companyRepository]))->query("
+            INNER JOIN country ON company.country = country.short 
+            INNER JOIN company ON company.name = company 
+            WHERE country.long = 'Hellfiretanien'
+        ");
+        $this->assertCount(1, $this->runTestJoinQuery($query));
+    }
+
     public function testJoinWithReferenceInCondition()
     {
         $query = (new QueryBuilder())
@@ -651,6 +696,16 @@ class PerformanceRepositoryTest extends TestCase
             ->where()
             ->condition('country.overlord', '=', RefAttribute::fromString('company.boss'))
             ->end();
+        $this->assertCount(3, $this->runTestJoinQuery($query));
+    }
+
+    public function testJoinWithReferenceInConditionJrql()
+    {
+        $query = (new Jrql(["company" => $this->companyRepository, "country" => $this->countryRepository]))->query("
+            INNER JOIN company ON company = company.name
+            INNER JOIN country ON country.short = company.country
+            WHERE country.overlord = company.boss
+        ");
         $this->assertCount(3, $this->runTestJoinQuery($query));
     }
 
@@ -702,6 +757,51 @@ class PerformanceRepositoryTest extends TestCase
             ->end();
         $this->assertCount(0, $this->runTestJoinQuery($query));
 
+
+    }
+
+    public function testJrql()
+    {
+        $query = (new Jrql())->query("name = 'cc-third-name' AND age > 600");
+        $this->assertCount(1, $this->runTestJoinQuery($query));
+
+        $query = (new Jrql())->query("
+            WHERE age > 12
+            ORDER BY age ASC
+            LIMIT 1 OFFSEt 1
+        ");
+        $result = $this->runTestJoinQuery($query);
+        $this->assertCount(1, $result);
+        $this->assertEquals(self::Person4()->getId(), $result[0]->getId());
+
+        $query = (new Jrql())->query("
+            WHERE age > 12 and company = 'companyABC'
+            ORDER BY age ASC
+        ");
+        $result = $this->runTestJoinQuery($query);
+        $this->assertCount(1, $result);
+        $this->assertEquals(self::Person2()->getId(), $result[0]->getId());
+
+        $query2 = (new Jrql())->query("
+            WHERE (age > 5 and company = 'companyABC') or company = 'evil-company' and age = 666
+            ORDER BY company DESC, name asc
+        ");
+        $result2 = $this->runTestJoinQuery($query2);
+        $this->assertCount(3, $result2);
+        $this->assertEquals(self::Person3()->getId(), $result2[0]->getId());
+        $this->assertEquals(self::Person1()->getId(), $result2[1]->getId());
+        $this->assertEquals(self::Person2()->getId(), $result2[2]->getId());
+
+
+        $query2 = (new Jrql())->query("
+            WHERE company = 'evil-company' and age = 666 or (age > 5 and company = 'companyABC')
+            ORDER BY company DESC, name desc
+        ");
+        $result2 = $this->runTestJoinQuery($query2);
+        $this->assertCount(3, $result2);
+        $this->assertEquals(self::Person3()->getId(), $result2[0]->getId());
+        $this->assertEquals(self::Person2()->getId(), $result2[1]->getId());
+        $this->assertEquals(self::Person1()->getId(), $result2[2]->getId());
 
     }
 

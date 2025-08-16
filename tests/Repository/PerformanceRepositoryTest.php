@@ -7,12 +7,15 @@ use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
 use Mmauksch\JsonRepositories\Contract\Extensions\Sorter;
 use Mmauksch\JsonRepositories\Filter\ClosureFastFilter;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\Operation;
+use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\RefAttribute;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\SortOrder;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\QueryBuilder;
 use Mmauksch\JsonRepositories\Repository\GenericJsonRepository;
 use Mmauksch\JsonRepositories\Repository\HighPerformanceJsonRepository;
 use Mmauksch\JsonRepositories\Tests\TestConstants;
+use Mmauksch\JsonRepositories\Tests\TestObjects\CompanyObject;
 use Mmauksch\JsonRepositories\Tests\TestObjects\ComplexObject;
+use Mmauksch\JsonRepositories\Tests\TestObjects\CountryObject;
 use Mmauksch\JsonRepositories\Tests\TestObjects\SimpleObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Filesystem\Filesystem;
@@ -21,9 +24,14 @@ use Symfony\Component\Filesystem\Path;
 class PerformanceRepositoryTest extends TestCase
 {
     protected static string $repodir = 'complex';
+    protected static string $repodirCompany = 'company';
+    protected static string $repodirCountry = 'country';
     protected static ?string $temppath = null;
     protected static Filesystem $filesystem;
-    private HighPerformanceJsonRepository $highPerformanceRepository;
+    private HighPerformanceJsonRepository $personRepository;
+
+    private HighPerformanceJsonRepository $companyRepository;
+    private HighPerformanceJsonRepository $countryRepository;
 
     public static function setUpBeforeClass(): void
     {
@@ -39,35 +47,87 @@ class PerformanceRepositoryTest extends TestCase
         self::$temppath = null;
     }
 
-    public static function ComplexObjectFirst(): ComplexObject
+    public static function Person1(): ComplexObject
     {
         return (new ComplexObject())
-            ->setId('aa-first-id-' . uniqid())
+            ->setId('aa-first-id')
             ->setName('aa-first-name')
             ->setActive(true)
             ->setDescription('aa-first-description')
             ->setAge(10)
             ->setCompany("companyABC");
     }
-    public static function ComplexObjectSecond(): ComplexObject
+    public static function Person2(): ComplexObject
     {
         return (new ComplexObject())
-            ->setId('bb-second-id-' . uniqid())
+            ->setId('bb-second-id')
             ->setName('bb-second-name')
             ->setActive(false)
             ->setDescription('bb-second-description')
             ->setAge(20)
             ->setCompany("companyABC");
     }
-    public static function ComplexObjectThird(): ComplexObject
+    public static function Person3(): ComplexObject
     {
         return (new ComplexObject())
-            ->setId('cc-third-id-' . uniqid())
+            ->setId('cc-third-id')
             ->setName('cc-third-name')
             ->setActive(false)
             ->setDescription('cc-third-description')
             ->setAge(666)
             ->setCompany("evil-company");
+    }
+    public static function Person4(): ComplexObject
+    {
+        return (new ComplexObject())
+            ->setId('dd-fourth-id')
+            ->setName('dd-fourth-name')
+            ->setActive(false)
+            ->setDescription('dd-fourth-description')
+            ->setAge(34)
+            ->setCompany("companyZZZ");
+    }
+
+    public static function Company1(): CompanyObject
+    {
+        return (new CompanyObject())
+            ->setName('companyABC')
+            ->setAddress('abc-address')
+            ->setCountry('de')
+            ->setCity('a-city')
+            ->setBoss('bb-second-id');
+    }
+    public static function Company2(): CompanyObject
+    {
+        return (new CompanyObject())
+            ->setName('evil-company')
+            ->setAddress('666-address')
+            ->setCountry('hell')
+            ->setCity('666-city')
+            ->setBoss('cc-third-id');
+    }
+    public static function Company3(): CompanyObject
+    {
+        return (new CompanyObject())
+            ->setName('companyZZZ')
+            ->setAddress('zzz-address')
+            ->setCountry('de')
+            ->setCity('a-city')
+            ->setBoss('dd-fourth-id');
+    }
+    public static function Country1(): CountryObject
+    {
+        return (new CountryObject())
+            ->setShort('hell')
+            ->setLong('in all, a funny place')
+            ->setOverlord('cc-third-id');
+    }
+    public static function Country2(): CountryObject
+    {
+        return (new CountryObject())
+            ->setShort('de')
+            ->setLong('germany')
+            ->setOverlord('bb-second-id');
     }
 
 
@@ -77,7 +137,7 @@ class PerformanceRepositoryTest extends TestCase
         if(is_dir($repositoryDir))
             self::$filesystem->remove($repositoryDir);
         self::$filesystem->mkdir($repositoryDir);
-        $this->highPerformanceRepository = new HighPerformanceJsonRepository(
+        $this->personRepository = new HighPerformanceJsonRepository(
             self::$temppath,
             self::$repodir,
             ComplexObject::class,
@@ -86,51 +146,76 @@ class PerformanceRepositoryTest extends TestCase
             ['name', 'company']
         );
 
+        $repositoryDir = Path::join(self::$temppath, static::$repodirCompany);
+        if(is_dir($repositoryDir))
+            self::$filesystem->remove($repositoryDir);
+        self::$filesystem->mkdir($repositoryDir);
+        $this->companyRepository = new HighPerformanceJsonRepository(
+            self::$temppath,
+            self::$repodirCompany,
+            CompanyObject::class,
+            self::$filesystem,
+            TestConstants::JsonSerializer(),
+            ['name', 'country']
+        );
+        $repositoryDir = Path::join(self::$temppath, static::$repodirCountry);
+        if(is_dir($repositoryDir))
+            self::$filesystem->remove($repositoryDir);
+        self::$filesystem->mkdir($repositoryDir);
+        $this->countryRepository = new HighPerformanceJsonRepository(
+            self::$temppath,
+            self::$repodirCountry,
+            CountryObject::class,
+            self::$filesystem,
+            TestConstants::JsonSerializer(),
+            []
+        );
+
     }
 
     public function testCanStoreAndRetrieveSimpleObjectHP()
     {
-        $testObject = $this->ComplexObjectFirst();
+        $testObject = $this->Person1();
         $id = $testObject->getId();
         $this->assertFileDoesNotExist(Path::join(self::$temppath, static::$repodir, "$id.json"));
-        $this->highPerformanceRepository->saveObject($testObject, $id);
+        $this->personRepository->saveObject($testObject, $id);
         $this->assertTrue(self::$filesystem->exists(Path::join(self::$temppath, static::$repodir, "$id.json")));
-        $loaded = $this->highPerformanceRepository->findObjectById($id);
+        $loaded = $this->personRepository->findObjectById($id);
         $this->assertNotSame($testObject, $loaded);
         $this->assertEquals($testObject, $loaded);
     }
 
     public function testWillReturnNullIfObjectNotFound()
     {
-        $this->assertNull($this->highPerformanceRepository->findObjectById('not-existing-id'));
+        $this->assertNull($this->personRepository->findObjectById('not-existing-id'));
     }
 
     public function testCanStoreMultipleObjects()
     {
-        $testObjectFirst = $this->ComplexObjectFirst();
-        $testObjectSecond = $this->ComplexObjectSecond();
-        $this->highPerformanceRepository->saveObject($testObjectFirst, $testObjectFirst->getId());
-        $this->highPerformanceRepository->saveObject($testObjectSecond, $testObjectSecond->getId());
+        $testObjectFirst = $this->Person1();
+        $testObjectSecond = $this->Person2();
+        $this->personRepository->saveObject($testObjectFirst, $testObjectFirst->getId());
+        $this->personRepository->saveObject($testObjectSecond, $testObjectSecond->getId());
         $this->assertFileExists(Path::join(self::$temppath, static::$repodir, "{$testObjectFirst->getId()}.json"));
         $this->assertFileExists(Path::join(self::$temppath, static::$repodir, "{$testObjectSecond->getId()}.json"));
-        $all = $this->highPerformanceRepository->findAllObjects();
+        $all = $this->personRepository->findAllObjects();
         $this->assertCount(2, $all);
     }
 
     public function testCanDeleteObject()
     {
-        $testObject = $this->ComplexObjectFirst();
+        $testObject = $this->Person1();
         $id = $testObject->getId();
-        $this->highPerformanceRepository->saveObject($testObject, $id);
+        $this->personRepository->saveObject($testObject, $id);
         $this->assertTrue(self::$filesystem->exists(Path::join(self::$temppath, static::$repodir, "$id.json")));
-        $this->highPerformanceRepository->deleteObjectById($id);
+        $this->personRepository->deleteObjectById($id);
         $this->assertFalse(self::$filesystem->exists(Path::join(self::$temppath, static::$repodir, "$id.json")));
     }
 
     public function testDeleteWillNotFailIfObjectDoesNotExist()
     {
         $this->assertFileDoesNotExist(Path::join(self::$temppath, static::$repodir, "not-existing-id.json"));
-        $this->highPerformanceRepository->deleteObjectById('not-existing-id');
+        $this->personRepository->deleteObjectById('not-existing-id');
         $this->assertTrue(true);
     }
 
@@ -160,33 +245,33 @@ class PerformanceRepositoryTest extends TestCase
      */
     public function testCanFindWithFilter(Filter|Closure $filter, int $expectedCount)
     {
-        $first = $this->ComplexObjectFirst();
-        $second = $this->ComplexObjectSecond();
-        $this->highPerformanceRepository->saveObject($first, $first->getId());
-        $this->highPerformanceRepository->saveObject($second, $second->getId());
-        $this->assertCount(2, $this->highPerformanceRepository->findAllObjects());
-        $this->assertCount($expectedCount, $this->highPerformanceRepository->findMatchingFilter($filter));
+        $first = $this->Person1();
+        $second = $this->Person2();
+        $this->personRepository->saveObject($first, $first->getId());
+        $this->personRepository->saveObject($second, $second->getId());
+        $this->assertCount(2, $this->personRepository->findAllObjects());
+        $this->assertCount($expectedCount, $this->personRepository->findMatchingFilter($filter));
     }
 
 
     public function testCanFindWithFilterObjectNotFound()
     {
-        $first = $this->ComplexObjectFirst();
-        $second = $this->ComplexObjectSecond();
-        $this->highPerformanceRepository->saveObject($first, $first->getId());
-        $this->highPerformanceRepository->saveObject($second, $second->getId());
-        $this->assertCount(2, $this->highPerformanceRepository->findAllObjects());
-        $this->assertCount(0, $this->highPerformanceRepository->findMatchingFilter(new NameFilter('not-existing-name')));
+        $first = $this->Person1();
+        $second = $this->Person2();
+        $this->personRepository->saveObject($first, $first->getId());
+        $this->personRepository->saveObject($second, $second->getId());
+        $this->assertCount(2, $this->personRepository->findAllObjects());
+        $this->assertCount(0, $this->personRepository->findMatchingFilter(new NameFilter('not-existing-name')));
     }
 
     public function testCanFindWithFilterAsClosure()
     {
-        $first = $this->ComplexObjectFirst();
-        $second = $this->ComplexObjectSecond();
-        $this->highPerformanceRepository->saveObject($first, $first->getId());
-        $this->highPerformanceRepository->saveObject($second, $second->getId());
-        $this->assertCount(2, $this->highPerformanceRepository->findAllObjects());
-        $resultMatching = $this->highPerformanceRepository->findMatchingFilter(
+        $first = $this->Person1();
+        $second = $this->Person2();
+        $this->personRepository->saveObject($first, $first->getId());
+        $this->personRepository->saveObject($second, $second->getId());
+        $this->assertCount(2, $this->personRepository->findAllObjects());
+        $resultMatching = $this->personRepository->findMatchingFilter(
             function (ComplexObject $object) use ($first) {
                 return $object->getId() === $first->getId();
             });
@@ -220,11 +305,11 @@ class PerformanceRepositoryTest extends TestCase
      */
     public function testCanRetrieveSorted(Sorter|Closure $sorter, $order = 'asc')
     {
-        $first = $this->ComplexObjectFirst();
-        $second = $this->ComplexObjectSecond();
-        $this->highPerformanceRepository->saveObject($first, $first->getId());
-        $this->highPerformanceRepository->saveObject($second, $second->getId());
-        $result = $this->highPerformanceRepository->findAllObjectSorted($sorter);
+        $first = $this->Person1();
+        $second = $this->Person2();
+        $this->personRepository->saveObject($first, $first->getId());
+        $this->personRepository->saveObject($second, $second->getId());
+        $result = $this->personRepository->findAllObjectSorted($sorter);
         $this->assertCount(2, $result);
         if($order === 'asc') {
             $this->assertEquals($first, $result[0]);
@@ -238,7 +323,7 @@ class PerformanceRepositoryTest extends TestCase
 
     public static function FilterSorter() : array
     {
-        $saveObjects = [self::ComplexObjectFirst(), self::ComplexObjectSecond(), self::ComplexObjectThird()];
+        $saveObjects = [self::Person1(), self::Person2(), self::Person3()];
         return [
             'filterSorterObjectASC' => [
                 $saveObjects,
@@ -290,9 +375,9 @@ class PerformanceRepositoryTest extends TestCase
     public function testCanRetrieveMatchedSorted(array $toSave, array $expectedNamesOrder, Filter|Closure $filter, int $expectedCount, Sorter|Closure $sorter)
     {
         foreach($toSave as $object) {
-            $this->highPerformanceRepository->saveObject($object, $object->getId());
+            $this->personRepository->saveObject($object, $object->getId());
         }
-        $result = $this->highPerformanceRepository->findMatchingFilterObjectSorted($filter,$sorter);
+        $result = $this->personRepository->findMatchingFilterObjectSorted($filter,$sorter);
         $this->assertCount($expectedCount, $result);
 
         for($i = 0; $i < $expectedCount; $i++) {
@@ -303,16 +388,16 @@ class PerformanceRepositoryTest extends TestCase
 
     public function testQueryStyle()
     {
-        $toSave = [self::ComplexObjectFirst(), self::ComplexObjectSecond(), self::ComplexObjectThird()];
+        $toSave = [self::Person1(), self::Person2(), self::Person3()];
         foreach($toSave as $object) {
-            $this->highPerformanceRepository->saveObject($object, $object->getId());
+            $this->personRepository->saveObject($object, $object->getId());
         }
 
         $query = (new QueryBuilder())->where()
             ->condition('name', '=', 'aa-first-name')
             ->condition('company', '=', 'companyABC')
             ->end();
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(1, $result);
         $this->assertEquals('aa-first-name', $result[0]->getName());
         $this->assertEquals('companyABC', $result[0]->getCompany());;
@@ -326,7 +411,7 @@ class PerformanceRepositoryTest extends TestCase
             ->condition('company', '=', 'companyABC')
             ->end();
 
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(2, $result);
 
         $query = (new QueryBuilder())->where()
@@ -338,7 +423,7 @@ class PerformanceRepositoryTest extends TestCase
             ->condition('company', '=', 'companyABC')
             ->end();
 
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(2, $result);
 
         $query = (new QueryBuilder())->where()
@@ -350,7 +435,7 @@ class PerformanceRepositoryTest extends TestCase
             ->condition('company', '=', 'evil-company')
             ->end();
 
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(1, $result);
 
         $query = (new QueryBuilder())->where()
@@ -361,30 +446,30 @@ class PerformanceRepositoryTest extends TestCase
             ->endX()
             ->end();
 
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(3, $result);
 
         $query = (new QueryBuilder())->where()
             ->condition('age', '>', 12)
             ->end();
 
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(2, $result);
 
     }
 
     public function testQueryStyleWithSorting()
     {
-        $toSave = [self::ComplexObjectFirst(), self::ComplexObjectSecond(), self::ComplexObjectThird()];
+        $toSave = [self::Person1(), self::Person2(), self::Person3()];
         foreach($toSave as $object) {
-            $this->highPerformanceRepository->saveObject($object, $object->getId());
+            $this->personRepository->saveObject($object, $object->getId());
         }
 
         $query = (new QueryBuilder())->where()
             ->condition('company', '=', 'companyABC')
             ->end()
             ->orderBy('id', 'asc');
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(2, $result);
         $this->assertEquals($toSave[0]->getId(), $result[0]->getId());
         $this->assertEquals($toSave[1]->getId(), $result[1]->getId());
@@ -394,7 +479,7 @@ class PerformanceRepositoryTest extends TestCase
             ->condition('company', '=', 'companyABC')
             ->end()
             ->orderBy('id', 'desc');
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(2, $result);
         $this->assertEquals($toSave[1]->getId(), $result[0]->getId());
         $this->assertEquals($toSave[0]->getId(), $result[1]->getId());
@@ -405,7 +490,7 @@ class PerformanceRepositoryTest extends TestCase
             ->condition('company', '=', 'companyABC')
             ->end()
             ->orderBy('name', 'asc');
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(2, $result);
         $this->assertEquals($toSave[0]->getId(), $result[0]->getId());
         $this->assertEquals($toSave[1]->getId(), $result[1]->getId());
@@ -415,7 +500,7 @@ class PerformanceRepositoryTest extends TestCase
             ->condition('company', '=', 'companyABC')
             ->end()
             ->orderBy('name', SortOrder::DESC);
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(2, $result);
         $this->assertEquals($toSave[1]->getId(), $result[0]->getId());
         $this->assertEquals($toSave[0]->getId(), $result[1]->getId());
@@ -423,7 +508,7 @@ class PerformanceRepositoryTest extends TestCase
 
 
         $query = (new QueryBuilder())->orderBy("company", SortOrder::ASC)->orderBy("id", SortOrder::ASC);;;
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(3, $result);
         $this->assertEquals($toSave[0]->getId(), $result[0]->getId());
         $this->assertEquals($toSave[1]->getId(), $result[1]->getId());
@@ -432,7 +517,7 @@ class PerformanceRepositoryTest extends TestCase
 
 
         $query = (new QueryBuilder())->orderBy("company", SortOrder::ASC)->orderBy("id", SortOrder::DESC);;;
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(3, $result);
         $this->assertEquals($toSave[1]->getId(), $result[0]->getId());
         $this->assertEquals($toSave[0]->getId(), $result[1]->getId());
@@ -443,30 +528,30 @@ class PerformanceRepositoryTest extends TestCase
 
     public function testQueryStyleWithLimit()
     {
-        $toSave = [self::ComplexObjectFirst(), self::ComplexObjectSecond(), self::ComplexObjectThird()];
+        $toSave = [self::Person1(), self::Person2(), self::Person3()];
         foreach($toSave as $object) {
-            $this->highPerformanceRepository->saveObject($object, $object->getId());
+            $this->personRepository->saveObject($object, $object->getId());
         }
 
         $query = (new QueryBuilder())->where()
             ->condition('name', '=', 'aa-first-name')
             ->end()
             ->orderBy('id', 'asc')->limit(1);;
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(1, $result);
         $this->assertEquals($toSave[0]->getId(), $result[0]->getId());
 
         $query = (new QueryBuilder())->where()
             ->condition('age', '>', 12)
             ->end();
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(2, $result);
 
         $query = (new QueryBuilder())->where()
             ->condition('age', Operation::GT, 12)
             ->end()
             ->orderBy('age', 'asc')->limit(1)->offset(0);
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(1, $result);
         $this->assertEquals($toSave[1]->getId(), $result[0]->getId());
 
@@ -474,9 +559,108 @@ class PerformanceRepositoryTest extends TestCase
             ->condition('age', Operation::GT, 12)
             ->end()
             ->orderBy('age', 'asc')->limit(1)->offset(1);
-        $result = $this->highPerformanceRepository->findMatchingFilter($query);
+        $result = $this->personRepository->findMatchingFilter($query);
         $this->assertCount(1, $result);
         $this->assertEquals($toSave[2]->getId(), $result[0]->getId());
+
+    }
+
+
+    public function testQueryStyleWithJoins()
+    {
+        $toSavePerson = [self::Person1(), self::Person2(), self::Person3(), self::Person4()];
+        foreach($toSavePerson as $object) {
+            $this->personRepository->saveObject($object, $object->getId());
+        }
+        $toSaveCompany= [self::Company1(), self::Company2(), self::Company3()];
+        foreach($toSaveCompany as $object) {
+            $this->companyRepository->saveObject($object, $object->getName());
+        }
+        $toSaveCountries= [self::Country1(), self::Country2()];
+        foreach($toSaveCountries as $object) {
+            $this->countryRepository->saveObject($object, $object->getShort());
+        }
+
+
+//        $query = (new QueryBuilder())
+//            ->innerJoin($this->companyRepository, "com")
+//            ->On("com.name", "company")
+//            ->where()
+//            ->condition('com.city', '=', 'a-city')
+//            ->end();
+//        $result = $this->personRepository->findMatchingFilter($query);
+//        $this->assertCount(3, $result);
+//
+//
+//        $query = (new QueryBuilder())
+//            ->innerJoin($this->companyRepository, "com")
+//            ->On("com.name", "company")
+//            ->where()
+//            ->condition('com.city', '=', 'a-city')
+//            ->condition('age', '<', 20)
+//            ->end();
+//        $result = $this->personRepository->findMatchingFilter($query);
+//        $this->assertCount(1, $result);
+//
+//
+//        $query = (new QueryBuilder())
+//            ->innerJoin($this->companyRepository, "com")
+//            ->On("com.name", "company")
+//            ->where()
+//            ->condition('com.city', '=', 'a-city')
+//            ->condition('com.address', '=', 'voelligFalsch')
+//            ->condition('age', '<', 20)
+//            ->end();
+//        $result = $this->personRepository->findMatchingFilter($query);
+//        $this->assertCount(0, $result);
+//
+//
+//        $query = (new QueryBuilder())
+//            ->innerJoin($this->countryRepository, "country")
+//            ->On("company.country", "country.short")
+//            ->innerJoin($this->companyRepository, "company")
+//            ->On("company.name", "company")
+//            ->where()
+//            ->condition('country.long', '=', 'germany')
+//            ->end();
+//        $result = $this->personRepository->findMatchingFilter($query);
+//        $this->assertCount(3, $result);
+//
+//        $query = (new QueryBuilder())
+//            ->innerJoin($this->countryRepository, "country")
+//            ->On("company.country", "country.short")
+//            ->innerJoin($this->companyRepository, "company")
+//            ->On("company.name", "company")
+//            ->where()
+//            ->condition('country.long', '=', 'in all, a funny place')
+//            ->end();
+//        $result = $this->personRepository->findMatchingFilter($query);
+//        $this->assertCount(1, $result);
+//
+//
+//        $query = (new QueryBuilder())
+//            ->innerJoin($this->countryRepository, "country")
+//            ->On("company.country", "country.short")
+//            ->innerJoin($this->companyRepository, "company")
+//            ->On("company.name", "company")
+//            ->where()
+//            ->condition('country.long', '=', 'in all, a funny place')
+//            ->end();
+//        $result = $this->personRepository->findMatchingFilter($query);
+//        $this->assertCount(1, $result);
+
+
+        $query = (new QueryBuilder())
+            ->innerJoin($this->companyRepository, "company")
+            ->On("company", "company.name")
+            ->innerJoin($this->countryRepository, "country")
+            ->On("country.short", "company.country")
+            ->where()
+            ->condition('country.overlord', '=', RefAttribute::fromString('company.boss'))
+            ->end();
+
+        $result = $this->personRepository->findMatchingFilter($query);
+        $this->assertCount(3, $result);
 
     }
 

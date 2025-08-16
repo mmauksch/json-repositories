@@ -26,11 +26,16 @@ class ConditionGroup
         $this->conditions[] = $conditionGroup;
     }
 
-    public function evaluate(object $data): bool
+    /**
+     * @param object $data
+     * @param array<string, array|iterable> $joinSet
+     * @return bool
+     */
+    public function evaluate(object $data, array $joinSet = []): bool
     {
         if ($this->type === ConditionGroupType::AND) {
             foreach ($this->conditions as $c) {
-                if (!$c->evaluate($data)) {
+                if (!$c->evaluate($data, $joinSet)) {
                     return false;
                 }
             }
@@ -39,7 +44,7 @@ class ConditionGroup
 
         if ($this->type === ConditionGroupType::OR) {
             foreach ($this->conditions as $c) {
-                if ($c->evaluate($data)) {
+                if ($c->evaluate($data, $joinSet)) {
                     return true;
                 }
             }
@@ -48,4 +53,5 @@ class ConditionGroup
 
         throw new \LogicException("Unknown group type: " . $this->type->value);
     }
+
 }

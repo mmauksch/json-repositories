@@ -29,6 +29,13 @@ trait BasicJsonRepositoryTrait
         return $object;
     }
 
+    public function getTargetClass(): string
+    {
+        return $this->targetClass;
+    }
+
+
+
     /** @return T[] */
     public function findAllObjects(): array
     {

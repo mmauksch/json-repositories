@@ -207,4 +207,8 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
         }
     }
 
+
+    public function deleteMatchingFilter(Filter|Closure $filter) : void{
+        throw new \Exception("Not implemented");
+    }
 }

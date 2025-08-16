@@ -18,7 +18,7 @@ class WhereBuilder
     public function condition(string $attribute, Operation|String $operation, mixed $value): self
     {
         $op = $operation instanceof Operation? $operation: Operation::fromString($operation);
-        if ($op == Operation::EQ){
+        if ($op == Operation::EQ && ! $value instanceof RefAttribute){
             $this->parent->addEqualIndexValue($attribute, $value);
         }
         $this->current->add(new Condition($attribute,$op,$value));

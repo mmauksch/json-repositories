@@ -9,14 +9,18 @@ use Mmauksch\JsonRepositories\Contract\Extensions\Sorter;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\Condition;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\ConditionGroup;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\ConditionGroupType;
+use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\GetPropertyValueTrait;
+use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\InnerJoinBuilder;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\QuerySorter;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\SortingStep;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\SortOrder;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\WhereBuilder;
 use Mmauksch\JsonRepositories\Filter\SortableFilter;
+use Mmauksch\JsonRepositories\Repository\AbstractJsonRepository;
 
 class QueryBuilder implements FastFilter, SortableFilter, Limit, Offset
 {
+    use GetPropertyValueTrait;
     /** @var array<string, array<string, mixed>|string> */
     private array $equalIndexesValues;
 
@@ -24,6 +28,8 @@ class QueryBuilder implements FastFilter, SortableFilter, Limit, Offset
 //    private string $from;
     private ConditionGroup $root;
 
+    /*** @var InnerJoinBuilder[] */
+    private $joins;
     private Sorter $sorter;
     /** @var SortingStep[] */
     private array $sorting = [];
@@ -39,6 +45,7 @@ class QueryBuilder implements FastFilter, SortableFilter, Limit, Offset
         $this->root = new ConditionGroup(ConditionGroupType::AND);
         $this->limit = null;
         $this->offset = 0;
+        $this->joins = [];
     }
 //
 //    public function select(array $fields): self
@@ -52,6 +59,12 @@ class QueryBuilder implements FastFilter, SortableFilter, Limit, Offset
 //        $this->from = $table;
 //        return $this;
 //    }
+
+    public function innerJoin(AbstractJsonRepository $repository, $name_prefix): InnerJoinBuilder
+    {
+        $this->joins[$name_prefix] = new InnerJoinBuilder($this, $repository, $name_prefix);
+        return $this->joins[$name_prefix];
+    }
 
     public function where(ConditionGroupType $initialConditionGroupType = ConditionGroupType::AND): WhereBuilder
     {
@@ -117,13 +130,173 @@ class QueryBuilder implements FastFilter, SortableFilter, Limit, Offset
 //        ];
 //    }
 
+//    public function __invoke(object $object): bool
+//    {
+//        if (count($this->root->conditions) == 0) {
+//            return true;
+//        }
+//
+//        if (count($this->joins) === 0) {
+//            return $this->root->evaluate($object, []);
+//        }
+//
+//
+//        $joinResults = [];
+//        foreach ($this->joins as $prefix => $joinBuilder) {
+//            if ($joinBuilder->__getType() === $joinBuilder::TYPE_INTERNAL) {
+//                $objectJoinValue = $this->getValue($object, $joinBuilder->__getNoRefAttribute());
+//                $queryBuilder = (new QueryBuilder())
+//                    ->where()
+//                    ->condition($joinBuilder->__getJoinRepoAttribute(), '=', $objectJoinValue)
+//                    ->end();
+//                $joinResponse = $joinBuilder->__getRepository()->findMatchingFilter($queryBuilder);
+//                $joinResults[$prefix] = $joinResponse;
+//            }
+//        }
+//
+//        foreach ($this->cartesianProduct($joinResults) as $combination) {
+//            if ($this->root->evaluate($object, $combination)) {
+//                return true;
+//            }
+//        }
+//
+//        return false;
+//    }
+//
+//    private function cartesianProduct(array $arrays): array
+//    {
+//        $result = [[]];
+//        foreach ($arrays as $prefix => $values) {
+//            $append = [];
+//            foreach ($result as $product) {
+//                foreach ($values as $v) {
+//                    $product[$prefix] = [$v];
+//                    $append[] = $product;
+//                }
+//            }
+//            $result = $append;
+//        }
+//        return $result;
+//    }
+
+
+
+
+
     public function __invoke(object $object): bool
     {
-        if (count($this->root->conditions) == 0) {
+        if (count($this->root->conditions) === 0) {
             return true;
         }
-        return $this->root->evaluate($object);
+
+        if (count($this->joins) === 0) {
+            return $this->root->evaluate($object, []);
+        }
+
+        // 1. alle direkten (TYPE_INTERNAL) Joins auflösen
+        $directJoinResults = [];
+        foreach ($this->joins as $prefix => $joinBuilder) {
+            if ($joinBuilder->__getType() === InnerJoinBuilder::TYPE_INTERNAL) {
+                $directJoinResults[$prefix] = $this->resolveDirectJoin($object, $joinBuilder, $prefix);
+            }
+        }
+
+        // 2. baue kartesisches Produkt aller direkten Joins
+        foreach ($this->cartesianProduct($directJoinResults) as $combination) {
+            // 3. rekursiv verkettete (TYPE_EXTERNAL) Joins anhängen
+            $fullCombination = $this->resolveNestedJoins($combination);
+
+            if ($this->root->evaluate($object, $fullCombination)) {
+                return true;
+            }
+        }
+
+        return false;
     }
+
+    private function resolveDirectJoin(object $object, InnerJoinBuilder $joinBuilder, string $prefix): array
+    {
+        $objectJoinValue = $this->getValue($object, $joinBuilder->__getNoRefAttribute()->getAttribute());
+
+        $queryBuilder = (new QueryBuilder())
+            ->where()
+            ->condition($joinBuilder->__getJoinRepoAttribute()->getAttribute(), '=', $objectJoinValue)
+            ->end();
+
+        $matches = $joinBuilder->__getRepository()->findMatchingFilter($queryBuilder);
+
+        return array_map(fn($m) => [$prefix => $m], $matches);
+    }
+
+
+    private function resolveNestedJoins(array $combination): array
+    {
+        $expanded = [$combination];
+
+        foreach ($this->joins as $prefix => $joinBuilder) {
+            if ($joinBuilder->__getType() === InnerJoinBuilder::TYPE_EXTERNAL) {
+                $parentPrefix = $joinBuilder->__getOtherRefAttribute()->getRef();
+                $parentAttr   = $joinBuilder->__getOtherRefAttribute()->getAttribute();
+
+                $newExpanded = [];
+
+                foreach ($expanded as $combo) {
+                    if (!isset($combo[$parentPrefix])) {
+                        // Parent fehlt in dieser Kombination → ignoriere
+                        $newExpanded[] = $combo;
+                        continue;
+                    }
+
+                    $parentObject = $combo[$parentPrefix];
+                    $joinValue = $this->getValue($parentObject, $parentAttr);
+
+                    $queryBuilder = (new QueryBuilder())
+                        ->where()
+                        ->condition($joinBuilder->__getJoinRepoAttribute()->getAttribute(), '=', $joinValue)
+                        ->end();
+
+                    $childResults = $joinBuilder->__getRepository()->findMatchingFilter($queryBuilder);
+
+                    if (empty($childResults)) {
+                        continue; // keine Treffer
+                    }
+
+                    foreach ($childResults as $child) {
+                        $newCombo = $combo;
+                        $newCombo[$prefix] = $child;
+                        $newExpanded[] = $newCombo;
+                    }
+                }
+
+                $expanded = $newExpanded;
+            }
+        }
+
+        return $expanded[0] ?? $combination;
+    }
+
+
+
+    private function cartesianProduct(array $arrays): array
+    {
+        $result = [[]];
+        foreach ($arrays as $values) {
+            $append = [];
+            foreach ($result as $product) {
+                foreach ($values as $combination) {
+                    $append[] = array_merge($product, $combination);
+                }
+            }
+            $result = $append;
+        }
+        return $result;
+    }
+
+
+
+
+
+
 
     public function useIndexes(): array
     {

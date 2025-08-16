@@ -565,8 +565,7 @@ class PerformanceRepositoryTest extends TestCase
 
     }
 
-
-    public function testQueryStyleWithJoins()
+    private function runTestJoinQuery($query): iterable
     {
         $toSavePerson = [self::Person1(), self::Person2(), self::Person3(), self::Person4()];
         foreach($toSavePerson as $object) {
@@ -580,76 +579,68 @@ class PerformanceRepositoryTest extends TestCase
         foreach($toSaveCountries as $object) {
             $this->countryRepository->saveObject($object, $object->getShort());
         }
+        return $this->personRepository->findMatchingFilter($query);
+    }
 
+    public function testSimpleInnerJoin()
+    {
+        $query = (new QueryBuilder())
+            ->innerJoin($this->companyRepository, "com")
+            ->On("com.name", "company")
+            ->where()
+            ->condition('com.city', '=', 'a-city')
+            ->end();
+        $this->assertCount(3, $this->runTestJoinQuery($query));
+    }
 
-//        $query = (new QueryBuilder())
-//            ->innerJoin($this->companyRepository, "com")
-//            ->On("com.name", "company")
-//            ->where()
-//            ->condition('com.city', '=', 'a-city')
-//            ->end();
-//        $result = $this->personRepository->findMatchingFilter($query);
-//        $this->assertCount(3, $result);
-//
-//
-//        $query = (new QueryBuilder())
-//            ->innerJoin($this->companyRepository, "com")
-//            ->On("com.name", "company")
-//            ->where()
-//            ->condition('com.city', '=', 'a-city')
-//            ->condition('age', '<', 20)
-//            ->end();
-//        $result = $this->personRepository->findMatchingFilter($query);
-//        $this->assertCount(1, $result);
-//
-//
-//        $query = (new QueryBuilder())
-//            ->innerJoin($this->companyRepository, "com")
-//            ->On("com.name", "company")
-//            ->where()
-//            ->condition('com.city', '=', 'a-city')
-//            ->condition('com.address', '=', 'voelligFalsch')
-//            ->condition('age', '<', 20)
-//            ->end();
-//        $result = $this->personRepository->findMatchingFilter($query);
-//        $this->assertCount(0, $result);
-//
-//
-//        $query = (new QueryBuilder())
-//            ->innerJoin($this->countryRepository, "country")
-//            ->On("company.country", "country.short")
-//            ->innerJoin($this->companyRepository, "company")
-//            ->On("company.name", "company")
-//            ->where()
-//            ->condition('country.long', '=', 'germany')
-//            ->end();
-//        $result = $this->personRepository->findMatchingFilter($query);
-//        $this->assertCount(3, $result);
-//
-//        $query = (new QueryBuilder())
-//            ->innerJoin($this->countryRepository, "country")
-//            ->On("company.country", "country.short")
-//            ->innerJoin($this->companyRepository, "company")
-//            ->On("company.name", "company")
-//            ->where()
-//            ->condition('country.long', '=', 'in all, a funny place')
-//            ->end();
-//        $result = $this->personRepository->findMatchingFilter($query);
-//        $this->assertCount(1, $result);
-//
-//
-//        $query = (new QueryBuilder())
-//            ->innerJoin($this->countryRepository, "country")
-//            ->On("company.country", "country.short")
-//            ->innerJoin($this->companyRepository, "company")
-//            ->On("company.name", "company")
-//            ->where()
-//            ->condition('country.long', '=', 'in all, a funny place')
-//            ->end();
-//        $result = $this->personRepository->findMatchingFilter($query);
-//        $this->assertCount(1, $result);
+    public function testSimpleJoinWithMultipleConditions()
+    {
+        $query = (new QueryBuilder())
+            ->innerJoin($this->companyRepository, "com")
+            ->On("com.name", "company")
+            ->where()
+            ->condition('com.city', '=', 'a-city')
+            ->condition('age', '<', 20)
+            ->end();
+        $this->assertCount(1, $this->runTestJoinQuery($query));
+    }
 
+    public function testSimpleJoinWithConditionsNoResultsOnFalseConditions() {
+        $query = (new QueryBuilder())
+            ->innerJoin($this->companyRepository, "com")
+            ->On("com.name", "company")
+            ->where()
+            ->condition('com.city', '=', 'a-city')
+            ->condition('com.address', '=', 'voelligFalsch')
+            ->condition('age', '<', 20)
+            ->end();
+        $this->assertCount(0, $this->runTestJoinQuery($query));
+    }
 
+    public function testNestedJoinWithConditionOnJoinedRepository() {
+        $query = (new QueryBuilder())
+            ->innerJoin($this->countryRepository, "country")
+            ->On("company.country", "country.short")
+            ->innerJoin($this->companyRepository, "company")
+            ->On("company.name", "company")
+            ->where()
+            ->condition('country.long', '=', 'germany')
+            ->end();
+        $this->assertCount(3, $this->runTestJoinQuery($query));
+
+        $query = (new QueryBuilder())
+            ->innerJoin($this->countryRepository, "country")
+            ->On("company.country", "country.short")
+            ->innerJoin($this->companyRepository, "company")
+            ->On("company.name", "company")
+            ->where()
+            ->condition('country.long', '=', 'in all, a funny place')
+            ->end();
+        $this->assertCount(1, $this->runTestJoinQuery($query));
+    }
+
+    public function testJoinWithReferenceInCondition()
+    {
         $query = (new QueryBuilder())
             ->innerJoin($this->companyRepository, "company")
             ->On("company", "company.name")
@@ -658,10 +649,6 @@ class PerformanceRepositoryTest extends TestCase
             ->where()
             ->condition('country.overlord', '=', RefAttribute::fromString('company.boss'))
             ->end();
-
-        $result = $this->personRepository->findMatchingFilter($query);
-        $this->assertCount(3, $result);
-
+        $this->assertCount(3, $this->runTestJoinQuery($query));
     }
-
 }

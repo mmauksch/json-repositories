@@ -11,10 +11,16 @@ class Condition
     public Operation $operation;
     public mixed $value;
 
+    /**
+     * @throws \Exception
+     */
     public function __construct(string $attribute, Operation|string $operation, mixed $value) {
         $this->attribute = $attribute;
         $this->operation = $operation instanceof Operation? $operation : Operation::fromString($operation);
         $this->value = $value;
+        if(($this->operation == Operation::IN || $this->operation == Operation::NOT_IN) && !is_array($value)){
+            throw new \Exception("{$this->operation->value} condition value must be an array");
+        }
     }
 
     /**
@@ -24,9 +30,23 @@ class Condition
      */
     public function evaluate(object $data, array $joinSet): bool
     {
-
-
         $actual = $this->getValueWithJoins($data, $this->attribute, $joinSet);
+
+        if($this->operation == Operation::IN ){
+            foreach ($this->value as $v){
+                if($v == $actual){
+                    return true;
+                }
+            }
+            return false;
+        }elseif($this->operation == Operation::NOT_IN){
+            foreach ($this->value as $v){
+                if($v == $actual){
+                    return false;
+                }
+            }
+            return true;
+        }
 
         $value = $this->value;
         if ($value instanceof RefAttribute) {

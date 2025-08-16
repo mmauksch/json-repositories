@@ -9,6 +9,8 @@ class CountryObject
 
     private string $overlord;
 
+    private string $description;
+
     public function getShort(): string
     {
         return $this->short;
@@ -39,6 +41,17 @@ class CountryObject
     public function setOverlord(string $overlord): CountryObject
     {
         $this->overlord = $overlord;
+        return $this;
+    }
+
+    public function getDescription(): string
+    {
+        return $this->description;
+    }
+
+    public function setDescription(string $description): CountryObject
+    {
+        $this->description = $description;
         return $this;
     }
 

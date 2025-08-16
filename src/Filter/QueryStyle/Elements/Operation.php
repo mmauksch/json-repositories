@@ -10,10 +10,12 @@ enum Operation: string
     case GTE = '>=';
     case LT = '<';
     case LTE = '<=';
+    case IN = 'IN';
+    case NOT_IN = 'NOT IN';
 
     static function fromString(string $operation): self
     {
-        return self::from($operation);
+        return self::from(mb_strtoupper($operation));
     }
 
 }

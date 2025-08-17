@@ -805,5 +805,32 @@ class PerformanceRepositoryTest extends TestCase
 
     }
 
+    public function testQueryStyleWithLimitAndOffset()
+    {
+        $nonIndexingPersonRepository = new GenericJsonRepository(
+            self::$temppath,
+            self::$repodir,
+            ComplexObject::class,
+            self::$filesystem,
+            TestConstants::JsonSerializer()
+        );
+        $toSave = [self::Person1(), self::Person2(), self::Person3(), self::Person4()];
+        foreach($toSave as $object) {
+            $nonIndexingPersonRepository->saveObject($object, $object->getId());
+        }
+
+        $basePath = Path::join(self::$temppath, self::$repodir, $this->personRepository::INDEXES_DIR, "company");
+        $this->assertFileDoesNotExist(Path::join($basePath, $toSave[0]->getCompany(), "{$toSave[0]->getId()}.json"));
+        $this->assertFileDoesNotExist(Path::join($basePath, $toSave[1]->getCompany(), "{$toSave[1]->getId()}.json"));
+        $this->assertFileDoesNotExist(Path::join($basePath, $toSave[2]->getCompany(), "{$toSave[2]->getId()}.json"));
+        $this->assertFileDoesNotExist(Path::join($basePath, $toSave[3]->getCompany(), "{$toSave[3]->getId()}.json"));
+        $this->personRepository->reindex();
+
+        $this->assertFileExists(Path::join($basePath, $toSave[0]->getCompany(), "{$toSave[0]->getId()}.json"));
+        $this->assertFileExists(Path::join($basePath, $toSave[1]->getCompany(), "{$toSave[1]->getId()}.json"));
+        $this->assertFileExists(Path::join($basePath, $toSave[2]->getCompany(), "{$toSave[2]->getId()}.json"));
+        $this->assertFileExists(Path::join($basePath, $toSave[3]->getCompany(), "{$toSave[3]->getId()}.json"));
+
+    }
 
 }

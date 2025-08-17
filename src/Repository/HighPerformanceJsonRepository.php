@@ -21,14 +21,14 @@ use Symfony\Component\Serializer\SerializerInterface;
  */
 class HighPerformanceJsonRepository extends GenericJsonRepository
 {
-    const FAST_ATTRIBUTES_DIR = "fast_attributes/";
+    const INDEXES_DIR = "indexes/";
 
-    private array $highPerformanceAttributWishes;
+    private array $possibleIndexes;
 
-    private ?array $fastAttributes = [];
+    private ?array $indexAttributes = [];
 
     /** @var ReflectionProperty[] */
-    private array $fastProperties = [];
+    private array $indexProperties = [];
 
     /**
      * @param string $jsonDbBaseDir
@@ -36,24 +36,24 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
      * @param string $targetClass
      * @param Filesystem $filesystem
      * @param SerializerInterface $serializer
-     * @param string[] $highPerformanceAttributes
+     * @param string[] $possibleIndexAttributes
      */
-    public function __construct(string $jsonDbBaseDir, $objectSubdir, string $targetClass, Filesystem $filesystem, SerializerInterface $serializer, array $highPerformanceAttributes = [])
+    public function __construct(string $jsonDbBaseDir, $objectSubdir, string $targetClass, Filesystem $filesystem, SerializerInterface $serializer, array $possibleIndexAttributes = [])
     {
         parent::__construct($jsonDbBaseDir, $objectSubdir, $targetClass, $filesystem, $serializer);
-        $this->highPerformanceAttributWishes = $highPerformanceAttributes;
-        $this->fastAttributes = null;
-        $this->fastProperties = [];
+        $this->possibleIndexes = $possibleIndexAttributes;
+        $this->indexAttributes = null;
+        $this->indexProperties = [];
     }
 
-    private function fastAttributes(object $object): array
+    private function buildIndexAttributes(object $object): array
     {
-        if (!is_null($this->fastAttributes)) {
-            return $this->fastAttributes;
+        if (!is_null($this->indexAttributes)) {
+            return $this->indexAttributes;
         }
         $fastAttributes = [];
         $attributes = $this->serializer->normalize($object);
-        $possibleFastAttributes =  array_intersect(array_keys($attributes), $this->highPerformanceAttributWishes);
+        $possibleFastAttributes =  array_intersect(array_keys($attributes), $this->possibleIndexes);
         $reflection = new ReflectionClass($this->targetClass);;
         foreach ($possibleFastAttributes as $attribute) {
             $property = null;
@@ -61,14 +61,14 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
             while ($currentReflection) {
                 if ($currentReflection->hasProperty($attribute)) {
                     $property = $currentReflection->getProperty($attribute);
-                    $this->fastProperties[$attribute] = $property;
+                    $this->indexProperties[$attribute] = $property;
                     $fastAttributes[] = $attribute;
                     break;
                 }
                 $currentReflection = $currentReflection->getParentClass();
             }
         }
-        $this->fastAttributes = $fastAttributes;
+        $this->indexAttributes = $fastAttributes;
         return $fastAttributes;
     }
 
@@ -85,7 +85,7 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
         $currentFiles = [];
 
         foreach ($indexValues as $indexDir) {
-            $dirPath = Path::join($this->objectStoreDirectory(), self::FAST_ATTRIBUTES_DIR, $index, $indexDir);
+            $dirPath = Path::join($this->objectStoreDirectory(), self::INDEXES_DIR, $index, $indexDir);
             if(!$this->filesystem->exists($dirPath))
             {
                 continue;
@@ -141,7 +141,7 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
         }
 
         $filterIndexes = $filter->useIndexes();
-        $usableIndexes =  array_intersect($this->fastAttributes($filter), array_keys($filterIndexes));
+        $usableIndexes =  array_intersect($this->buildIndexAttributes($filter), array_keys($filterIndexes));
 
         $result = [];
         if (empty($usableIndexes)) {
@@ -164,30 +164,40 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
         return $this->applyLimitAndOffset($filter, $result);
     }
 
+    private function filenameForId(mixed $id): string
+    {
+        return Path::join($this->objectStoreDirectory(), "$id.json");
+    }
+
     /** @param T $object */
     public function saveObject(object $object, string $id): object
     {
-        $filename = Path::join($this->objectStoreDirectory(), "$id.json");
+        $filename = $this->filenameForId($id);
         $this->filesystem->dumpFile(
             $filename,
             $this->serializer->serialize($object, 'json')
         );
-        
-        $fastAttributes = $this->fastAttributes($object);
-        $fastFileNames = [];
-        foreach ($fastAttributes as $attribute) {
-            $dir = Path::join($this->objectStoreDirectory(), self::FAST_ATTRIBUTES_DIR, $attribute, $this->fastProperties[$attribute]->getValue($object),);
+        $this->builtIndexForObjectAndPrimaryFile($object, $filename);
+
+        return $object;
+    }
+
+    private function builtIndexForObjectAndPrimaryFile(object $object, string $primaryFilename): void
+    {
+        $basename = basename($primaryFilename);
+        $indexAttributes = $this->buildIndexAttributes($object);
+        $indexFileNames = [];
+        foreach ($indexAttributes as $attribute) {
+            $dir = Path::join($this->objectStoreDirectory(), self::INDEXES_DIR, $attribute, $this->indexProperties[$attribute]->getValue($object),);
             if (!$this->filesystem->exists($dir)) {
                 $this->filesystem->mkdir($dir);
             }
-            $fastFileNames[] = Path::join($dir, "$id.json");
+            $indexFileNames[] = Path::join($dir, $basename);
         }
-        $this->deleteOldLinks($filename, $this->objectStoreDirectory());
-        if (count($fastAttributes) > 0) {
-            $this->filesystem->hardlink($filename, $fastFileNames);
+        $this->deleteOldLinks($primaryFilename, $this->objectStoreDirectory());
+        if (count($indexAttributes) > 0) {
+            $this->filesystem->hardlink($primaryFilename, $indexFileNames);
         }
-
-        return $object;
     }
 
     public function deleteObjectById(mixed $id): void
@@ -208,7 +218,20 @@ class HighPerformanceJsonRepository extends GenericJsonRepository
     }
 
 
+    public function reindex(): void{
+        $this->filesystem->remove(Path::join($this->objectStoreDirectory(), self::INDEXES_DIR));
+        $this->filesystem->mkdir(Path::join($this->objectStoreDirectory(), self::INDEXES_DIR));
+        $all = $this->findAllObjectFiles();
+        foreach ($all as $objectFile) {
+            $this->builtIndexForObjectAndPrimaryFile($this->deserializeFileObject($objectFile), $objectFile->getPathname());
+        }
+    }
+
+
     public function deleteMatchingFilter(Filter|Closure $filter) : void{
         throw new \Exception("Not implemented");
     }
+
+
+
 }

@@ -3,6 +3,7 @@
 namespace Mmauksch\JsonRepositories\Repository\Traits;
 
 use Mmauksch\JsonRepositories\Contract\BasicJsonRepository;
+use SplFileInfo;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Filesystem\Path;
 use Symfony\Component\Finder\Finder;
@@ -35,13 +36,23 @@ trait BasicJsonRepositoryTrait
     }
 
 
+    protected function findAllObjectFiles(): Finder
+    {
+        return (new Finder())->files()->depth('== 0')->name('*.json')->in($this->objectStoreDirectory());
+    }
+
+    /** @return T */
+    protected function deserializeFileObject(SplFileInfo $objectFile): mixed
+    {
+        return $this->serializer->deserialize($objectFile->getContents(), $this->targetClass, 'json');
+    }
 
     /** @return T[] */
     public function findAllObjects(): array
     {
         $result = [];
-        foreach ((new Finder())->files()->depth('== 0')->name('*.json')->in($this->objectStoreDirectory()) as $objectFile) {
-            $result[] = $this->serializer->deserialize($objectFile->getContents(), $this->targetClass, 'json');
+        foreach ($this->findAllObjectFiles() as $objectFile) {
+            $result[] = $this->deserializeFileObject($objectFile);
         }
         return $result;
     }

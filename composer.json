@@ -2,7 +2,7 @@
     "name": "mmauksch/json-repositories",
     "description": "Basic implementation of the repository pattern that stores its content in serialized json files. Intended use is for testing or prototyping! NOT INTENDED FOR PRODUCTION USE!",
     "keywords": ["json", "repository", "prototyping"],
-    "version": "dev-main",
+    "version": "1.5.0",
     "type": "library",
     "license": "MIT",
     "require": {

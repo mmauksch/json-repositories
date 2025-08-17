@@ -40,6 +40,7 @@ abstract class RepositoryQueryTestCase extends TestCase
             TestConstants::JsonSerializer(),
             ['name', 'company']
         );
+        $this->personRepository->reindex();
 
         $repositoryDir = Path::join(self::$testdatapath, static::$repodirCompany);
         self::$filesystem->mkdir($repositoryDir);
@@ -51,6 +52,8 @@ abstract class RepositoryQueryTestCase extends TestCase
             TestConstants::JsonSerializer(),
             ['name', 'country']
         );
+        $this->companyRepository->reindex();
+
         $repositoryDir = Path::join(self::$testdatapath, static::$repodirCountry);
         self::$filesystem->mkdir($repositoryDir);
         $this->countryRepository = new HighPerformanceJsonRepository(
@@ -61,5 +64,6 @@ abstract class RepositoryQueryTestCase extends TestCase
             TestConstants::JsonSerializer(),
             []
         );
+        $this->countryRepository->reindex();
     }
 }

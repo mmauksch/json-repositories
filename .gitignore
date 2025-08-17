@@ -92,3 +92,5 @@ composer.lock
 .phpunit.result.cache
 phpunit.xml
 .phpunit.cache/
+/tests/testdata/**/fast_attributes/
+/tests/testdata/**/indexes/

@@ -6,9 +6,11 @@ use Closure;
 use Mmauksch\JsonRepositories\Contract\Extensions\Filter;
 use Mmauksch\JsonRepositories\Contract\Extensions\Sorter;
 use Mmauksch\JsonRepositories\Filter\ClosureFastFilter;
+use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\ConditionGroupType;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\Operation;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\RefAttribute;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\Elements\SortOrder;
+use Mmauksch\JsonRepositories\Filter\QueryStyle\jrql\Jrql;
 use Mmauksch\JsonRepositories\Filter\QueryStyle\QueryBuilder;
 use Mmauksch\JsonRepositories\Repository\GenericJsonRepository;
 use Mmauksch\JsonRepositories\Repository\HighPerformanceJsonRepository;
@@ -387,79 +389,6 @@ class PerformanceRepositoryTest extends TestCase
         }
     }
 
-
-    public function testQueryStyle()
-    {
-        $toSave = [self::Person1(), self::Person2(), self::Person3()];
-        foreach($toSave as $object) {
-            $this->personRepository->saveObject($object, $object->getId());
-        }
-
-        $query = (new QueryBuilder())->where()
-            ->condition('name', '=', 'aa-first-name')
-            ->condition('company', '=', 'companyABC')
-            ->end();
-        $result = $this->personRepository->findMatchingFilter($query);
-        $this->assertCount(1, $result);
-        $this->assertEquals('aa-first-name', $result[0]->getName());
-        $this->assertEquals('companyABC', $result[0]->getCompany());;
-
-
-        $query = (new QueryBuilder())->where()
-            ->orX()
-                ->condition('name', '=', 'aa-first-name')
-                ->condition('name', '=', 'bb-second-name')
-            ->endX()
-            ->condition('company', '=', 'companyABC')
-            ->end();
-
-        $result = $this->personRepository->findMatchingFilter($query);
-        $this->assertCount(2, $result);
-
-        $query = (new QueryBuilder())->where()
-            ->orX()
-                ->condition('name', '=', 'aa-first-name')
-                ->condition('name', '=', 'bb-second-name')
-                ->condition('name', '=', 'cc-third-name')
-            ->endX()
-            ->condition('company', '=', 'companyABC')
-            ->end();
-
-        $result = $this->personRepository->findMatchingFilter($query);
-        $this->assertCount(2, $result);
-
-        $query = (new QueryBuilder())->where()
-            ->orX()
-                ->condition('name', '=', 'aa-first-name')
-                ->condition('name', '=', 'bb-second-name')
-                ->condition('name', '=', 'cc-third-name')
-            ->endX()
-            ->condition('company', '=', 'evil-company')
-            ->end();
-
-        $result = $this->personRepository->findMatchingFilter($query);
-        $this->assertCount(1, $result);
-
-        $query = (new QueryBuilder())->where()
-            ->orX()
-                ->condition('name', '=', 'aa-first-name')
-                ->condition('name', '=', 'bb-second-name')
-                ->condition('name', '=', 'cc-third-name')
-            ->endX()
-            ->end();
-
-        $result = $this->personRepository->findMatchingFilter($query);
-        $this->assertCount(3, $result);
-
-        $query = (new QueryBuilder())->where()
-            ->condition('age', '>', 12)
-            ->end();
-
-        $result = $this->personRepository->findMatchingFilter($query);
-        $this->assertCount(2, $result);
-
-    }
-
     public function testQueryStyleWithSorting()
     {
         $toSave = [self::Person1(), self::Person2(), self::Person3()];
@@ -567,7 +496,7 @@ class PerformanceRepositoryTest extends TestCase
 
     }
 
-    private function runTestJoinQuery($query): iterable
+    private function runTestQueryWithData($query): iterable
     {
         $toSavePerson = [self::Person1(), self::Person2(), self::Person3(), self::Person4()];
         foreach($toSavePerson as $object) {
@@ -583,127 +512,77 @@ class PerformanceRepositoryTest extends TestCase
         }
         return $this->personRepository->findMatchingFilter($query);
     }
-
-    public function testSimpleInnerJoin()
+    public function testJrql()
     {
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "com")
-            ->On("com.name", "company")
-            ->where()
-            ->condition('com.city', '=', 'a-city')
-            ->end();
-        $this->assertCount(3, $this->runTestJoinQuery($query));
+        $query = (new Jrql())->query("name = 'cc-third-name' AND age > 600");
+        $this->assertCount(1, $this->runTestQueryWithData($query));
+
+        $query = (new Jrql())->query("
+            WHERE age > 12
+            ORDER BY age ASC
+            LIMIT 1 OFFSEt 1
+        ");
+        $result = $this->runTestQueryWithData($query);
+        $this->assertCount(1, $result);
+        $this->assertEquals(self::Person4()->getId(), $result[0]->getId());
+
+        $query = (new Jrql())->query("
+            WHERE age > 12 and company = 'companyABC'
+            ORDER BY age ASC
+        ");
+        $result = $this->runTestQueryWithData($query);
+        $this->assertCount(1, $result);
+        $this->assertEquals(self::Person2()->getId(), $result[0]->getId());
+
+        $query2 = (new Jrql())->query("
+            WHERE (age > 5 and company = 'companyABC') or company = 'evil-company' and age = 666
+            ORDER BY company DESC, name asc
+        ");
+        $result2 = $this->runTestQueryWithData($query2);
+        $this->assertCount(3, $result2);
+        $this->assertEquals(self::Person3()->getId(), $result2[0]->getId());
+        $this->assertEquals(self::Person1()->getId(), $result2[1]->getId());
+        $this->assertEquals(self::Person2()->getId(), $result2[2]->getId());
+
+
+        $query2 = (new Jrql())->query("
+            WHERE company = 'evil-company' and age = 666 or (age > 5 and company = 'companyABC')
+            ORDER BY company DESC, name desc
+        ");
+        $result2 = $this->runTestQueryWithData($query2);
+        $this->assertCount(3, $result2);
+        $this->assertEquals(self::Person3()->getId(), $result2[0]->getId());
+        $this->assertEquals(self::Person2()->getId(), $result2[1]->getId());
+        $this->assertEquals(self::Person1()->getId(), $result2[2]->getId());
+
     }
 
-    public function testSimpleJoinWithMultipleConditions()
+    public function testQueryStyleWithLimitAndOffset()
     {
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "com")
-            ->On("com.name", "company")
-            ->where()
-            ->condition('com.city', '=', 'a-city')
-            ->condition('age', '<', 20)
-            ->end();
-        $this->assertCount(1, $this->runTestJoinQuery($query));
-    }
+        $nonIndexingPersonRepository = new GenericJsonRepository(
+            self::$temppath,
+            self::$repodir,
+            ComplexObject::class,
+            self::$filesystem,
+            TestConstants::JsonSerializer()
+        );
+        $toSave = [self::Person1(), self::Person2(), self::Person3(), self::Person4()];
+        foreach($toSave as $object) {
+            $nonIndexingPersonRepository->saveObject($object, $object->getId());
+        }
 
-    public function testSimpleJoinWithConditionsNoResultsOnFalseConditions() {
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "com")
-            ->On("com.name", "company")
-            ->where()
-            ->condition('com.city', '=', 'a-city')
-            ->condition('com.address', '=', 'voelligFalsch')
-            ->condition('age', '<', 20)
-            ->end();
-        $this->assertCount(0, $this->runTestJoinQuery($query));
-    }
+        $basePath = Path::join(self::$temppath, self::$repodir, $this->personRepository::INDEXES_DIR, "company");
+        $this->assertFileDoesNotExist(Path::join($basePath, $toSave[0]->getCompany(), "{$toSave[0]->getId()}.json"));
+        $this->assertFileDoesNotExist(Path::join($basePath, $toSave[1]->getCompany(), "{$toSave[1]->getId()}.json"));
+        $this->assertFileDoesNotExist(Path::join($basePath, $toSave[2]->getCompany(), "{$toSave[2]->getId()}.json"));
+        $this->assertFileDoesNotExist(Path::join($basePath, $toSave[3]->getCompany(), "{$toSave[3]->getId()}.json"));
+        $this->personRepository->reindex();
 
-    public function testNestedJoinWithConditionOnJoinedRepository() {
-        $query = (new QueryBuilder())
-            ->innerJoin($this->countryRepository, "country")
-            ->On("company.country", "country.short")
-            ->innerJoin($this->companyRepository, "company")
-            ->On("company.name", "company")
-            ->where()
-            ->condition('country.long', '=', 'germany')
-            ->end();
-        $this->assertCount(3, $this->runTestJoinQuery($query));
-
-        $query = (new QueryBuilder())
-            ->innerJoin($this->countryRepository, "country")
-            ->On("company.country", "country.short")
-            ->innerJoin($this->companyRepository, "company")
-            ->On("company.name", "company")
-            ->where()
-            ->condition('country.long', '=', 'Hellfiretanien')
-            ->end();
-        $this->assertCount(1, $this->runTestJoinQuery($query));
-    }
-
-    public function testJoinWithReferenceInCondition()
-    {
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "company")
-            ->On("company", "company.name")
-            ->innerJoin($this->countryRepository, "country")
-            ->On("country.short", "company.country")
-            ->where()
-            ->condition('country.overlord', '=', RefAttribute::fromString('company.boss'))
-            ->end();
-        $this->assertCount(3, $this->runTestJoinQuery($query));
-    }
-
-    public function testINConditions()
-    {
-        $query = (new QueryBuilder())
-            ->where()
-            ->condition('name', Operation::IN, ['nopeName', 'cc-third-name', 'aa-first-name'])
-            ->end();
-        $this->assertCount(2, $this->runTestJoinQuery($query));
-
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "company")
-            ->On("company", "company.name")
-            ->innerJoin($this->countryRepository, "country")
-            ->On("country.short", "company.country")
-            ->where()
-            ->condition('country.long', Operation::IN, ['nopeTan', 'germany'])
-            ->end();
-        $this->assertCount(3, $this->runTestJoinQuery($query));
-
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "company")
-            ->On("company", "company.name")
-            ->innerJoin($this->countryRepository, "country")
-            ->On("country.short", "company.country")
-            ->where()
-            ->condition('country.description', Operation::IN, ['in all, a funny place'])
-            ->end();
-        $this->assertCount(1, $this->runTestJoinQuery($query));
-
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "company")
-            ->On("company", "company.name")
-            ->innerJoin($this->countryRepository, "country")
-            ->On("country.short", "company.country")
-            ->where()
-            ->condition('country.long', Operation::NOT_IN, ['nopeTan', 'germany'])
-            ->end();
-        $this->assertCount(1, $this->runTestJoinQuery($query));
-
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "company")
-            ->On("company", "company.name")
-            ->innerJoin($this->countryRepository, "country")
-            ->On("country.short", "company.country")
-            ->where()
-            ->condition('country.long', Operation::NOT_IN, ['nopeTan', 'germany', 'Hellfiretanien'])
-            ->end();
-        $this->assertCount(0, $this->runTestJoinQuery($query));
-
+        $this->assertFileExists(Path::join($basePath, $toSave[0]->getCompany(), "{$toSave[0]->getId()}.json"));
+        $this->assertFileExists(Path::join($basePath, $toSave[1]->getCompany(), "{$toSave[1]->getId()}.json"));
+        $this->assertFileExists(Path::join($basePath, $toSave[2]->getCompany(), "{$toSave[2]->getId()}.json"));
+        $this->assertFileExists(Path::join($basePath, $toSave[3]->getCompany(), "{$toSave[3]->getId()}.json"));
 
     }
-
 
 }

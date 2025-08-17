@@ -4,7 +4,7 @@ namespace Mmauksch\JsonRepositories\Filter\QueryStyle\Elements;
 
 use Mmauksch\JsonRepositories\Filter\QueryStyle\QueryBuilder;
 
-class GroupBuilder
+class GroupBuilder implements ExpressionGroupInterface
 {
     private QueryBuilder $queryBuilder;
     private WhereBuilder|GroupBuilder $upper;

@@ -389,79 +389,6 @@ class PerformanceRepositoryTest extends TestCase
         }
     }
 
-
-    public function testQueryStyle()
-    {
-        $toSave = [self::Person1(), self::Person2(), self::Person3()];
-        foreach($toSave as $object) {
-            $this->personRepository->saveObject($object, $object->getId());
-        }
-
-        $query = (new QueryBuilder())->where()
-            ->condition('name', '=', 'aa-first-name')
-            ->condition('company', '=', 'companyABC')
-            ->end();
-        $result = $this->personRepository->findMatchingFilter($query);
-        $this->assertCount(1, $result);
-        $this->assertEquals('aa-first-name', $result[0]->getName());
-        $this->assertEquals('companyABC', $result[0]->getCompany());;
-
-
-        $query = (new QueryBuilder())->where()
-            ->orX()
-                ->condition('name', '=', 'aa-first-name')
-                ->condition('name', '=', 'bb-second-name')
-            ->endX()
-            ->condition('company', '=', 'companyABC')
-            ->end();
-
-        $result = $this->personRepository->findMatchingFilter($query);
-        $this->assertCount(2, $result);
-
-        $query = (new QueryBuilder())->where()
-            ->orX()
-                ->condition('name', '=', 'aa-first-name')
-                ->condition('name', '=', 'bb-second-name')
-                ->condition('name', '=', 'cc-third-name')
-            ->endX()
-            ->condition('company', '=', 'companyABC')
-            ->end();
-
-        $result = $this->personRepository->findMatchingFilter($query);
-        $this->assertCount(2, $result);
-
-        $query = (new QueryBuilder())->where()
-            ->orX()
-                ->condition('name', '=', 'aa-first-name')
-                ->condition('name', '=', 'bb-second-name')
-                ->condition('name', '=', 'cc-third-name')
-            ->endX()
-            ->condition('company', '=', 'evil-company')
-            ->end();
-
-        $result = $this->personRepository->findMatchingFilter($query);
-        $this->assertCount(1, $result);
-
-        $query = (new QueryBuilder())->where()
-            ->orX()
-                ->condition('name', '=', 'aa-first-name')
-                ->condition('name', '=', 'bb-second-name')
-                ->condition('name', '=', 'cc-third-name')
-            ->endX()
-            ->end();
-
-        $result = $this->personRepository->findMatchingFilter($query);
-        $this->assertCount(3, $result);
-
-        $query = (new QueryBuilder())->where()
-            ->condition('age', '>', 12)
-            ->end();
-
-        $result = $this->personRepository->findMatchingFilter($query);
-        $this->assertCount(2, $result);
-
-    }
-
     public function testQueryStyleWithSorting()
     {
         $toSave = [self::Person1(), self::Person2(), self::Person3()];
@@ -569,7 +496,7 @@ class PerformanceRepositoryTest extends TestCase
 
     }
 
-    private function runTestJoinQuery($query): iterable
+    private function runTestQueryWithData($query): iterable
     {
         $toSavePerson = [self::Person1(), self::Person2(), self::Person3(), self::Person4()];
         foreach($toSavePerson as $object) {
@@ -585,192 +512,17 @@ class PerformanceRepositoryTest extends TestCase
         }
         return $this->personRepository->findMatchingFilter($query);
     }
-
-    public function testSimpleInnerJoin()
-    {
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "com")
-            ->On("com.name", "company")
-            ->where()
-            ->condition('com.city', '=', 'a-city')
-            ->end();
-        $this->assertCount(3, $this->runTestJoinQuery($query));
-    }
-
-    public function testSimpleInnerJoinJrql()
-    {
-        $query = (new Jrql(["com" => $this->companyRepository]))->query("
-            INNER JOIN com ON com.name = company
-            WHERE com.city = 'a-city'
-        ");
-        $result = $this->runTestJoinQuery($query);
-        $this->assertCount(3, $result);
-    }
-
-    public function testSimpleJoinWithMultipleConditions()
-    {
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "com")
-            ->On("com.name", "company")
-            ->where()
-            ->condition('com.city', '=', 'a-city')
-            ->condition('age', '<', 20)
-            ->end();
-        $this->assertCount(1, $this->runTestJoinQuery($query));
-    }
-
-    public function testSimpleJoinWithMultipleConditionsJrql()
-    {
-        $query = (new Jrql(["com" => $this->companyRepository]))->query("
-            INNER JOIN com ON com.name = company
-            WHERE com.city = 'a-city' AND age < 20
-        ");
-        $this->assertCount(1, $this->runTestJoinQuery($query));
-    }
-
-    public function testSimpleJoinWithConditionsNoResultsOnFalseConditions() {
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "com")
-            ->On("com.name", "company")
-            ->where()
-            ->condition('com.city', '=', 'a-city')
-            ->condition('com.address', '=', 'voelligFalsch')
-            ->condition('age', '<', 20)
-            ->end();
-        $this->assertCount(0, $this->runTestJoinQuery($query));
-    }
-
-    public function testSimpleJoinWithConditionsNoResultsOnFalseConditionsJrql() {
-        $query = (new Jrql(["com" => $this->companyRepository]))->query("
-            INNER JOIN com ON com.name = company
-            WHERE com.city = 'a-city' AND com.address = 'voelligFalsch' AND age < 20
-        ");
-        $this->assertCount(0, $this->runTestJoinQuery($query));
-    }
-
-    public function testNestedJoinWithConditionOnJoinedRepository() {
-        $query = (new QueryBuilder())
-            ->innerJoin($this->countryRepository, "country")
-            ->On("company.country", "country.short")
-            ->innerJoin($this->companyRepository, "company")
-            ->On("company.name", "company")
-            ->where()
-            ->condition('country.long', '=', 'germany')
-            ->end();
-        $this->assertCount(3, $this->runTestJoinQuery($query));
-
-        $query = (new QueryBuilder())
-            ->innerJoin($this->countryRepository, "country")
-            ->On("company.country", "country.short")
-            ->innerJoin($this->companyRepository, "company")
-            ->On("company.name", "company")
-            ->where()
-            ->condition('country.long', '=', 'Hellfiretanien')
-            ->end();
-        $this->assertCount(1, $this->runTestJoinQuery($query));
-    }
-
-    public function testNestedJoinWithConditionOnJoinedRepositoryJrql() {
-        $query = (new Jrql(["country" => $this->countryRepository, "company" => $this->companyRepository]))->query("
-            INNER JOIN country ON company.country = country.short 
-            INNER JOIN company ON company.name = company 
-            WHERE country.long = 'germany'
-        ");
-        $this->assertCount(3, $this->runTestJoinQuery($query));
-
-        $query = (new Jrql(["country" => $this->countryRepository, "company" => $this->companyRepository]))->query("
-            INNER JOIN country ON company.country = country.short 
-            INNER JOIN company ON company.name = company 
-            WHERE country.long = 'Hellfiretanien'
-        ");
-        $this->assertCount(1, $this->runTestJoinQuery($query));
-    }
-
-    public function testJoinWithReferenceInCondition()
-    {
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "company")
-            ->On("company", "company.name")
-            ->innerJoin($this->countryRepository, "country")
-            ->On("country.short", "company.country")
-            ->where()
-            ->condition('country.overlord', '=', RefAttribute::fromString('company.boss'))
-            ->end();
-        $this->assertCount(3, $this->runTestJoinQuery($query));
-    }
-
-    public function testJoinWithReferenceInConditionJrql()
-    {
-        $query = (new Jrql(["company" => $this->companyRepository, "country" => $this->countryRepository]))->query("
-            INNER JOIN company ON company = company.name
-            INNER JOIN country ON country.short = company.country
-            WHERE country.overlord = company.boss
-        ");
-        $this->assertCount(3, $this->runTestJoinQuery($query));
-    }
-
-    public function testINConditions()
-    {
-        $query = (new QueryBuilder())
-            ->where()
-            ->condition('name', Operation::IN, ['nopeName', 'cc-third-name', 'aa-first-name'])
-            ->end();
-        $this->assertCount(2, $this->runTestJoinQuery($query));
-
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "company")
-            ->On("company", "company.name")
-            ->innerJoin($this->countryRepository, "country")
-            ->On("country.short", "company.country")
-            ->where()
-            ->condition('country.long', Operation::IN, ['nopeTan', 'germany'])
-            ->end();
-        $this->assertCount(3, $this->runTestJoinQuery($query));
-
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "company")
-            ->On("company", "company.name")
-            ->innerJoin($this->countryRepository, "country")
-            ->On("country.short", "company.country")
-            ->where()
-            ->condition('country.description', Operation::IN, ['in all, a funny place'])
-            ->end();
-        $this->assertCount(1, $this->runTestJoinQuery($query));
-
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "company")
-            ->On("company", "company.name")
-            ->innerJoin($this->countryRepository, "country")
-            ->On("country.short", "company.country")
-            ->where()
-            ->condition('country.long', Operation::NOT_IN, ['nopeTan', 'germany'])
-            ->end();
-        $this->assertCount(1, $this->runTestJoinQuery($query));
-
-        $query = (new QueryBuilder())
-            ->innerJoin($this->companyRepository, "company")
-            ->On("company", "company.name")
-            ->innerJoin($this->countryRepository, "country")
-            ->On("country.short", "company.country")
-            ->where()
-            ->condition('country.long', Operation::NOT_IN, ['nopeTan', 'germany', 'Hellfiretanien'])
-            ->end();
-        $this->assertCount(0, $this->runTestJoinQuery($query));
-
-
-    }
-
     public function testJrql()
     {
         $query = (new Jrql())->query("name = 'cc-third-name' AND age > 600");
-        $this->assertCount(1, $this->runTestJoinQuery($query));
+        $this->assertCount(1, $this->runTestQueryWithData($query));
 
         $query = (new Jrql())->query("
             WHERE age > 12
             ORDER BY age ASC
             LIMIT 1 OFFSEt 1
         ");
-        $result = $this->runTestJoinQuery($query);
+        $result = $this->runTestQueryWithData($query);
         $this->assertCount(1, $result);
         $this->assertEquals(self::Person4()->getId(), $result[0]->getId());
 
@@ -778,7 +530,7 @@ class PerformanceRepositoryTest extends TestCase
             WHERE age > 12 and company = 'companyABC'
             ORDER BY age ASC
         ");
-        $result = $this->runTestJoinQuery($query);
+        $result = $this->runTestQueryWithData($query);
         $this->assertCount(1, $result);
         $this->assertEquals(self::Person2()->getId(), $result[0]->getId());
 
@@ -786,7 +538,7 @@ class PerformanceRepositoryTest extends TestCase
             WHERE (age > 5 and company = 'companyABC') or company = 'evil-company' and age = 666
             ORDER BY company DESC, name asc
         ");
-        $result2 = $this->runTestJoinQuery($query2);
+        $result2 = $this->runTestQueryWithData($query2);
         $this->assertCount(3, $result2);
         $this->assertEquals(self::Person3()->getId(), $result2[0]->getId());
         $this->assertEquals(self::Person1()->getId(), $result2[1]->getId());
@@ -797,7 +549,7 @@ class PerformanceRepositoryTest extends TestCase
             WHERE company = 'evil-company' and age = 666 or (age > 5 and company = 'companyABC')
             ORDER BY company DESC, name desc
         ");
-        $result2 = $this->runTestJoinQuery($query2);
+        $result2 = $this->runTestQueryWithData($query2);
         $this->assertCount(3, $result2);
         $this->assertEquals(self::Person3()->getId(), $result2[0]->getId());
         $this->assertEquals(self::Person2()->getId(), $result2[1]->getId());

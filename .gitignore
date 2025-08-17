@@ -92,3 +92,4 @@ composer.phar
 .phpunit.result.cache
 phpunit.xml
 .phpunit.cache/
+/tests/testdata/**/fast_attributes/
